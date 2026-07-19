@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] — 2026-07-20
+
+### Added
+
+#### Backend — Notifications & Feed Optimization
+- Notification model + service + API: create, list (paginated), mark-read, mark-all-read, unread-count
+- Automatic notification triggers: comment creates notification for moment author, like creates notification, follow creates notification
+- Feed optimized: properly filters by Follow table (followed users' visible moments + public moments), excludes archived/deleted
+- User profile counts: moment_count, follower_count, following_count now use real SQL queries
+- Alembic env.py imports Notification model
+
+#### Frontend — Notifications, Settings, Comment/Like
+- Notifications page: icon per type (❤️💬👤🔔), unread badges, mark-read on tap, pull-to-refresh
+- Settings page: edit profile form, change password UI (stub), data export (stub), account deletion with confirmation modal
+- Profile layout with Settings route registration
+- Moment detail page: real comments API integration (list + create with input), real like toggle (❤️ toggleLike API)
+- Notifications API service
+
+#### CI/CD
+- GitHub Actions workflow: `backend` job (ruff lint + pytest with PG 16 + Redis 7), `frontend` job (tsc --noEmit + expo export --platform web)
+- 4 auth tests (register, login, refresh, duplicate) — all 4 passed
+- pytest with async fixtures, coverage reporting
+- Model fixes: ForeignKey constraint on Moment.user_id, relationship hygiene
+
 ## [0.3.0] — 2026-07-20
 
 ### Added
