@@ -15,7 +15,7 @@ import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { getMomentFeed } from "../../../services/moments";
 import { formatRelativeTime } from "../../../utils/format";
-import { Colors, Spacing, FontSize, Radius } from "../../../constants/theme";
+import { Colors, Spacing, FontSize, FontWeight, Radius } from "../../../constants/theme";
 import { PAGE_SIZE } from "../../../constants/config";
 import type { MomentFeedItem, PaginatedData } from "../../../types/api";
 
@@ -103,7 +103,7 @@ function EmptyState() {
       <Ionicons
         name="compass-outline"
         size={64}
-        color={Colors.textPlaceholder}
+        color={Colors.textTertiary}
       />
       <Text style={styles.emptyText}>暂无公开生刻</Text>
       <Text style={styles.emptySubtext}>还没有人发布公开记录</Text>
@@ -157,7 +157,6 @@ export default function ExploreScreen() {
     // TODO: Navigate to search results or trigger search API
     // For now, this is a UI-only search bar placeholder
     if (searchQuery.trim()) {
-      // Could navigate to a dedicated search page
       console.log("Search:", searchQuery);
     }
   }, [searchQuery]);
@@ -181,7 +180,7 @@ export default function ExploreScreen() {
           <TextInput
             style={styles.searchInput}
             placeholder="搜索用户或记录…"
-            placeholderTextColor={Colors.textPlaceholder}
+            placeholderTextColor={Colors.textTertiary}
             value={searchQuery}
             onChangeText={setSearchQuery}
             returnKeyType="search"
@@ -212,7 +211,7 @@ export default function ExploreScreen() {
         </View>
       ) : isError ? (
         <View style={styles.center}>
-          <Text style={styles.errorText}>加载失败，请下拉刷新重试</Text>
+          <Text style={styles.errorText}>加载失败</Text>
         </View>
       ) : (
         <FlatList
@@ -231,7 +230,7 @@ export default function ExploreScreen() {
             moments.length === 0 && styles.listEmpty,
           ]}
           onEndReached={handleEndReached}
-          onEndReachedThreshold={0.3}
+          onEndReachedThreshold={0.5}
           ListEmptyComponent={EmptyState}
           renderItem={({ item }) => (
             <MomentCard
@@ -245,7 +244,6 @@ export default function ExploreScreen() {
             isFetchingNextPage ? (
               <View style={styles.footerLoader}>
                 <ActivityIndicator size="small" color={Colors.primary} />
-                <Text style={styles.footerLoaderText}>加载更多…</Text>
               </View>
             ) : null
           }
@@ -255,39 +253,44 @@ export default function ExploreScreen() {
   );
 }
 
-// ── Styles ──────────────────────────────────────────────
+// ── Styles ──
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: Colors.bg,
   },
+
+  // ── Header ──
   header: {
     paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.md,
-    paddingBottom: Spacing.sm,
-    backgroundColor: Colors.white,
+    paddingVertical: Spacing.md,
+    backgroundColor: Colors.bgCard,
     borderBottomWidth: 0.5,
     borderBottomColor: Colors.border,
   },
   headerTitle: {
-    fontSize: FontSize.title,
-    fontWeight: "800",
+    fontSize: FontSize.heading1,
+    fontWeight: FontWeight.bold,
     color: Colors.textPrimary,
   },
   headerSubtitle: {
-    fontSize: FontSize.sm,
+    fontSize: FontSize.small,
     color: Colors.textTertiary,
     marginTop: 2,
   },
+
+  // ── Search ──
   searchContainer: {
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.bgCard,
+    borderBottomWidth: 0.5,
+    borderBottomColor: Colors.border,
   },
   searchBar: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: Colors.background,
+    backgroundColor: Colors.bg,
     borderRadius: Radius.full,
     paddingHorizontal: Spacing.md,
     height: 40,
@@ -295,34 +298,37 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    fontSize: FontSize.md,
+    fontSize: FontSize.small,
     color: Colors.textPrimary,
     paddingVertical: 0,
   },
+
+  // ── Section Header ──
   sectionHeader: {
-    flexDirection: "row",
-    alignItems: "baseline",
-    gap: Spacing.sm,
     paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.md,
     paddingBottom: Spacing.sm,
+    backgroundColor: Colors.bg,
   },
   sectionTitle: {
-    fontSize: FontSize.lg,
-    fontWeight: "700",
+    fontSize: FontSize.bodyLarge,
+    fontWeight: FontWeight.semibold,
     color: Colors.textPrimary,
   },
   sectionSubtitle: {
-    fontSize: FontSize.sm,
+    fontSize: FontSize.small,
     color: Colors.textTertiary,
+    marginTop: 2,
   },
+
+  // ── Content ──
   center: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
   },
   errorText: {
-    fontSize: FontSize.md,
+    fontSize: FontSize.body,
     color: Colors.error,
   },
   list: {
@@ -338,13 +344,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   emptyText: {
-    fontSize: FontSize.md,
+    fontSize: FontSize.body,
     color: Colors.textTertiary,
     marginTop: Spacing.md,
   },
   emptySubtext: {
-    fontSize: FontSize.sm,
-    color: Colors.textPlaceholder,
+    fontSize: FontSize.small,
+    color: Colors.textTertiary,
     marginTop: Spacing.xs,
   },
   footerLoader: {
@@ -352,16 +358,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     paddingVertical: Spacing.md,
-    gap: Spacing.sm,
-  },
-  footerLoaderText: {
-    fontSize: FontSize.sm,
-    color: Colors.textTertiary,
   },
 
   // ── Card ──
   card: {
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.bgCard,
     borderRadius: Radius.lg,
     padding: Spacing.md,
     shadowColor: Colors.textPrimary,
@@ -385,17 +386,17 @@ const styles = StyleSheet.create({
     fontSize: 18,
   },
   time: {
-    fontSize: FontSize.xs,
+    fontSize: FontSize.caption,
     color: Colors.textTertiary,
   },
   cardTitle: {
-    fontSize: FontSize.lg,
-    fontWeight: "600",
+    fontSize: FontSize.bodyLarge,
+    fontWeight: FontWeight.semibold,
     color: Colors.textPrimary,
     marginBottom: 4,
   },
   content: {
-    fontSize: FontSize.md,
+    fontSize: FontSize.body,
     color: Colors.textSecondary,
     lineHeight: 22,
     marginBottom: Spacing.sm,
@@ -413,7 +414,7 @@ const styles = StyleSheet.create({
     borderRadius: Radius.full,
   },
   tagText: {
-    fontSize: FontSize.xs,
+    fontSize: FontSize.caption,
     color: Colors.primary,
   },
   cardFooter: {
@@ -426,7 +427,7 @@ const styles = StyleSheet.create({
     gap: 3,
   },
   statText: {
-    fontSize: FontSize.xs,
+    fontSize: FontSize.caption,
     color: Colors.textTertiary,
   },
 });

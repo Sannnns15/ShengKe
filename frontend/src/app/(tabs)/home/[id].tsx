@@ -22,7 +22,7 @@ import {
 } from "../../../services/comments";
 import { toggleLike, getLikeStatus } from "../../../services/social";
 import { formatRelativeTime, formatCount } from "../../../utils/format";
-import { Colors, Spacing, FontSize, Radius } from "../../../constants/theme";
+import { Colors, Spacing, FontSize, Radius, Shadows, LineHeight } from "../../../constants/theme";
 import type { MomentDetail } from "../../../types/api";
 
 // ── Helpers ──────────────────────────────────────────────
@@ -197,17 +197,23 @@ export default function MomentDetailScreen() {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          {/* ── Header: title + mood ── */}
+          {/* ── Mood ── */}
+          {moment.mood && (
+            <Text style={styles.moodEmoji}>{moment.mood}</Text>
+          )}
+
+          {/* ── Title ── */}
           {moment.title && (
             <Text style={styles.title}>{moment.title}</Text>
           )}
+
+          {/* ── Meta: time + privacy ── */}
           <View style={styles.metaRow}>
-            {moment.mood && <Text style={styles.mood}>{moment.mood}</Text>}
             <Text style={styles.time}>
               {formatRelativeTime(moment.created_at)}
             </Text>
             <View style={styles.privacyBadge}>
-              <Ionicons name="lock-closed" size={12} color={Colors.textTertiary} />
+              <Ionicons name="lock-closed" size={10} color={Colors.textTertiary} />
               <Text style={styles.privacyText}>
                 {getPrivacyLabel(moment.privacy_level)}
               </Text>
@@ -216,23 +222,8 @@ export default function MomentDetailScreen() {
 
           {/* ── Content ── */}
           {moment.content && (
-            <Text style={styles.content}>{moment.content}</Text>
-          )}
-
-          {/* ── AI Tags ── */}
-          {moment.ai_tags && moment.ai_tags.length > 0 && (
-            <View style={styles.aiSection}>
-              <View style={styles.aiSectionTitleRow}>
-                <Ionicons name="sparkles" size={14} color={Colors.primary} />
-                <Text style={styles.aiSectionTitle}> AI 标签</Text>
-              </View>
-              <View style={styles.tagsRow}>
-                {moment.ai_tags.map((tag) => (
-                  <View key={tag} style={styles.tag}>
-                    <Text style={styles.tagText}>{tag}</Text>
-                  </View>
-                ))}
-              </View>
+            <View style={styles.contentBlock}>
+              <Text style={styles.content}>{moment.content}</Text>
             </View>
           )}
 
@@ -240,10 +231,31 @@ export default function MomentDetailScreen() {
           {moment.ai_summary && (
             <View style={styles.aiSection}>
               <View style={styles.aiSectionTitleRow}>
-                <Ionicons name="sparkles" size={14} color={Colors.primary} />
+                <Ionicons name="sparkles" size={16} color={Colors.textAccent} />
                 <Text style={styles.aiSectionTitle}> AI 摘要</Text>
               </View>
               <Text style={styles.aiSummaryText}>{moment.ai_summary}</Text>
+            </View>
+          )}
+
+          {/* ── AI Tags ── */}
+          {moment.ai_tags && moment.ai_tags.length > 0 && (
+            <View style={styles.aiSection}>
+              <View style={styles.aiSectionTitleRow}>
+                <Ionicons name="pricetags-outline" size={16} color={Colors.textAccent} />
+                <Text style={styles.aiSectionTitle}> 标签</Text>
+              </View>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={styles.aiTagsScroll}
+              >
+                {moment.ai_tags.map((tag) => (
+                  <View key={tag} style={styles.aiTagChip}>
+                    <Text style={styles.aiTagChipText}>{tag}</Text>
+                  </View>
+                ))}
+              </ScrollView>
             </View>
           )}
 
@@ -251,24 +263,31 @@ export default function MomentDetailScreen() {
           {moment.ai_emotion && (
             <View style={styles.aiSection}>
               <View style={styles.aiSectionTitleRow}>
-                <Ionicons name="sparkles" size={14} color={Colors.primary} />
-                <Text style={styles.aiSectionTitle}> AI 情绪分析</Text>
+                <Ionicons name="happy-outline" size={16} color={Colors.textAccent} />
+                <Text style={styles.aiSectionTitle}> 情绪分析</Text>
               </View>
               <View style={styles.emotionRow}>
-                <Text style={styles.emotionIcon}>
-                  {moment.ai_emotion === "positive"
-                    ? "😊"
-                    : moment.ai_emotion === "negative"
-                      ? "😢"
-                      : "😐"}
-                </Text>
-                <Text style={styles.emotionLabel}>
-                  {moment.ai_emotion === "positive"
-                    ? "正面"
-                    : moment.ai_emotion === "negative"
-                      ? "负面"
-                      : "中性"}
-                </Text>
+                <View
+                  style={[
+                    styles.emotionBadge,
+                    {
+                      backgroundColor:
+                        moment.ai_emotion === "positive"
+                          ? Colors.moodHappy
+                          : moment.ai_emotion === "negative"
+                          ? Colors.moodSad
+                          : Colors.moodCalm,
+                    },
+                  ]}
+                >
+                  <Text style={styles.emotionText}>
+                    {moment.ai_emotion === "positive"
+                      ? "😊 正面"
+                      : moment.ai_emotion === "negative"
+                      ? "😢 负面"
+                      : "😐 中性"}
+                  </Text>
+                </View>
               </View>
             </View>
           )}
@@ -276,20 +295,18 @@ export default function MomentDetailScreen() {
           {/* ── Stats Row ── */}
           <View style={styles.statsRow}>
             <View style={styles.stat}>
-              <Ionicons name="heart-outline" size={18} color={Colors.textSecondary} />
-              <Text style={styles.statText}>
-                {formatCount(currentLikeCount)}
-              </Text>
+              <Ionicons name="heart-outline" size={16} color={Colors.textTertiary} />
+              <Text style={styles.statLabel}>{formatCount(currentLikeCount)}</Text>
             </View>
             <View style={styles.stat}>
-              <Ionicons name="chatbubble-outline" size={18} color={Colors.textSecondary} />
-              <Text style={styles.statText}>
+              <Ionicons name="chatbubble-outline" size={16} color={Colors.textTertiary} />
+              <Text style={styles.statLabel}>
                 {formatCount(moment.comment_count || sortedComments.length)}
               </Text>
             </View>
             <View style={styles.stat}>
-              <Ionicons name="eye-outline" size={18} color={Colors.textSecondary} />
-              <Text style={styles.statText}>
+              <Ionicons name="eye-outline" size={16} color={Colors.textTertiary} />
+              <Text style={styles.statLabel}>
                 {formatCount(moment.view_count)}
               </Text>
             </View>
@@ -366,7 +383,7 @@ export default function MomentDetailScreen() {
           <TextInput
             style={styles.commentInput}
             placeholder="写评论..."
-            placeholderTextColor={Colors.textPlaceholder}
+            placeholderTextColor={Colors.textTertiary}
             value={commentText}
             onChangeText={setCommentText}
             multiline
@@ -402,28 +419,28 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   container: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: Colors.bg,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: Colors.background,
+    backgroundColor: Colors.bg,
   },
   errorText: {
-    fontSize: FontSize.md,
+    fontSize: FontSize.body,
     color: Colors.error,
     marginBottom: Spacing.md,
   },
   backButtonInline: {
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.sm,
-    borderRadius: Radius.sm,
+    borderRadius: Radius.lg,
     backgroundColor: Colors.primary,
   },
   backButtonInlineText: {
     color: Colors.textInverse,
-    fontSize: FontSize.sm,
+    fontSize: FontSize.small,
     fontWeight: "600",
   },
 
@@ -432,11 +449,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: Spacing.md,
+    paddingHorizontal: Spacing.page,
     paddingVertical: Spacing.sm,
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.bgCard,
     borderBottomWidth: 0.5,
-    borderBottomColor: Colors.border,
+    borderBottomColor: Colors.divider,
   },
   backBtn: {
     width: 40,
@@ -445,7 +462,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   topBarTitle: {
-    fontSize: FontSize.lg,
+    fontSize: FontSize.heading3,
     fontWeight: "600",
     color: Colors.textPrimary,
   },
@@ -455,58 +472,64 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    padding: Spacing.md,
-    paddingBottom: Spacing.md,
+    padding: Spacing.page,
+    paddingBottom: Spacing.xxxl,
   },
 
   // ── Content ──
+  moodEmoji: {
+    fontSize: 64,
+    marginBottom: Spacing.md,
+  },
   title: {
-    fontSize: FontSize.xxl,
+    fontSize: FontSize.heading1,
     fontWeight: "700",
     color: Colors.textPrimary,
     marginBottom: Spacing.sm,
+    lineHeight: FontSize.heading1 * LineHeight.tight,
   },
   metaRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.sm,
-    marginBottom: Spacing.md,
-  },
-  mood: {
-    fontSize: 22,
+    marginBottom: Spacing.lg,
   },
   time: {
-    fontSize: FontSize.sm,
+    fontSize: FontSize.small,
     color: Colors.textTertiary,
   },
   privacyBadge: {
     flexDirection: "row",
     alignItems: "center",
     gap: 3,
-    backgroundColor: Colors.borderLight,
+    backgroundColor: Colors.bgSecondary,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: Radius.sm,
   },
   privacyText: {
-    fontSize: FontSize.xs,
+    fontSize: FontSize.caption,
     color: Colors.textTertiary,
   },
-  content: {
-    fontSize: FontSize.lg,
-    color: Colors.textPrimary,
-    lineHeight: 26,
+  contentBlock: {
+    backgroundColor: Colors.bgCard,
+    borderRadius: Radius.lg,
+    padding: Spacing.lg,
     marginBottom: Spacing.lg,
+    ...Shadows.sm,
+  },
+  content: {
+    fontSize: FontSize.bodyLarge,
+    color: Colors.textPrimary,
+    lineHeight: FontSize.bodyLarge * LineHeight.loose,
   },
 
-  // ── AI ──
+  // ── AI Section ──
   aiSection: {
-    backgroundColor: Colors.white,
-    borderRadius: Radius.md,
+    backgroundColor: Colors.bgTertiary,
+    borderRadius: Radius.lg,
     padding: Spacing.md,
     marginBottom: Spacing.md,
-    borderLeftWidth: 3,
-    borderLeftColor: Colors.primary,
   },
   aiSectionTitleRow: {
     flexDirection: "row",
@@ -514,41 +537,42 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.sm,
   },
   aiSectionTitle: {
-    fontSize: FontSize.sm,
+    fontSize: FontSize.small,
     fontWeight: "600",
-    color: Colors.primary,
+    color: Colors.textAccent,
   },
-  tagsRow: {
+  aiSummaryText: {
+    fontSize: FontSize.small,
+    color: Colors.textSecondary,
+    lineHeight: FontSize.small * LineHeight.relaxed,
+    fontStyle: "italic",
+  },
+  aiTagsScroll: {
     flexDirection: "row",
-    flexWrap: "wrap",
-    gap: Spacing.sm,
   },
-  tag: {
-    backgroundColor: Colors.primaryLight + "20",
+  aiTagChip: {
+    backgroundColor: Colors.bgSecondary,
     paddingHorizontal: Spacing.sm,
     paddingVertical: Spacing.xs,
     borderRadius: Radius.full,
+    marginRight: Spacing.sm,
   },
-  tagText: {
-    fontSize: FontSize.xs,
-    color: Colors.primary,
-  },
-  aiSummaryText: {
-    fontSize: FontSize.sm,
+  aiTagChipText: {
+    fontSize: FontSize.small,
     color: Colors.textSecondary,
-    lineHeight: 20,
   },
   emotionRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: Spacing.sm,
   },
-  emotionIcon: {
-    fontSize: 28,
+  emotionBadge: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+    borderRadius: Radius.full,
   },
-  emotionLabel: {
-    fontSize: FontSize.md,
-    fontWeight: "600",
+  emotionText: {
+    fontSize: FontSize.body,
+    fontWeight: "500",
     color: Colors.textPrimary,
   },
 
@@ -563,9 +587,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 4,
   },
-  statText: {
-    fontSize: FontSize.sm,
-    color: Colors.textSecondary,
+  statLabel: {
+    fontSize: FontSize.small,
+    color: Colors.textTertiary,
   },
 
   // ── Like Button ──
@@ -574,7 +598,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: Spacing.sm,
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.bgCard,
     borderRadius: Radius.lg,
     paddingVertical: Spacing.sm,
     marginBottom: Spacing.md,
@@ -586,7 +610,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.error + "08",
   },
   likeButtonText: {
-    fontSize: FontSize.md,
+    fontSize: FontSize.body,
     color: Colors.textSecondary,
     fontWeight: "600",
   },
@@ -597,13 +621,13 @@ const styles = StyleSheet.create({
   // ── Divider ──
   divider: {
     height: 0.5,
-    backgroundColor: Colors.border,
+    backgroundColor: Colors.divider,
     marginVertical: Spacing.md,
   },
 
   // ── Comments ──
   commentsHeader: {
-    fontSize: FontSize.lg,
+    fontSize: FontSize.heading3,
     fontWeight: "700",
     color: Colors.textPrimary,
     marginBottom: Spacing.md,
@@ -612,7 +636,7 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.lg,
   },
   noComments: {
-    fontSize: FontSize.sm,
+    fontSize: FontSize.small,
     color: Colors.textTertiary,
     textAlign: "center",
     paddingVertical: Spacing.lg,
@@ -621,6 +645,10 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: Spacing.sm,
     marginBottom: Spacing.md,
+    backgroundColor: Colors.bgCard,
+    borderRadius: Radius.lg,
+    padding: Spacing.md,
+    ...Shadows.sm,
   },
   commentAvatar: {
     width: 36,
@@ -631,7 +659,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   commentAvatarText: {
-    fontSize: FontSize.sm,
+    fontSize: FontSize.small,
     fontWeight: "700",
     color: Colors.primary,
   },
@@ -645,18 +673,18 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   commentNickname: {
-    fontSize: FontSize.sm,
+    fontSize: FontSize.small,
     fontWeight: "600",
     color: Colors.textPrimary,
   },
   commentTime: {
-    fontSize: FontSize.xs,
+    fontSize: FontSize.caption,
     color: Colors.textTertiary,
   },
   commentContent: {
-    fontSize: FontSize.sm,
+    fontSize: FontSize.small,
     color: Colors.textSecondary,
-    lineHeight: 20,
+    lineHeight: FontSize.small * LineHeight.relaxed,
   },
 
   // ── Comment Input Bar ──
@@ -664,18 +692,18 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "flex-end",
     gap: Spacing.sm,
-    paddingHorizontal: Spacing.md,
+    paddingHorizontal: Spacing.page,
     paddingVertical: Spacing.sm,
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.bgCard,
     borderTopWidth: 0.5,
-    borderTopColor: Colors.border,
+    borderTopColor: Colors.divider,
   },
   commentInput: {
     flex: 1,
-    fontSize: FontSize.sm,
+    fontSize: FontSize.small,
     color: Colors.textPrimary,
-    backgroundColor: Colors.background,
-    borderRadius: Radius.full,
+    backgroundColor: Colors.bg,
+    borderRadius: Radius.lg,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
     maxHeight: 80,
@@ -694,11 +722,11 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   commentError: {
-    fontSize: FontSize.xs,
+    fontSize: FontSize.caption,
     color: Colors.error,
     textAlign: "center",
-    paddingHorizontal: Spacing.md,
+    paddingHorizontal: Spacing.page,
     paddingBottom: Spacing.xs,
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.bgCard,
   },
 });

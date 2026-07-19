@@ -126,15 +126,16 @@ export default function RegisterScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.inner}>
-          <Text style={styles.title}>注册账号</Text>
-          <Text style={styles.subtitle}>加入 ShengKe，记录每一刻</Text>
+          {/* ── Logo / Title ── */}
+          <Text style={styles.logoText}>ShengKe</Text>
+          <Text style={styles.slogan}>加入 ShengKe，记录每一刻</Text>
 
           <View style={styles.form}>
             {/* Phone */}
             <TextInput
               style={styles.input}
               placeholder="手机号"
-              placeholderTextColor={Colors.textPlaceholder}
+              placeholderTextColor={Colors.textTertiary}
               keyboardType="phone-pad"
               maxLength={11}
               value={phone}
@@ -148,7 +149,7 @@ export default function RegisterScreen() {
               <TextInput
                 style={[styles.input, styles.codeInput]}
                 placeholder="验证码"
-                placeholderTextColor={Colors.textPlaceholder}
+                placeholderTextColor={Colors.textTertiary}
                 keyboardType="number-pad"
                 maxLength={6}
                 value={code}
@@ -182,7 +183,7 @@ export default function RegisterScreen() {
             <TextInput
               style={styles.input}
               placeholder="昵称"
-              placeholderTextColor={Colors.textPlaceholder}
+              placeholderTextColor={Colors.textTertiary}
               maxLength={20}
               value={nickname}
               onChangeText={setNickname}
@@ -194,7 +195,7 @@ export default function RegisterScreen() {
             <TextInput
               style={styles.input}
               placeholder="密码（至少6位）"
-              placeholderTextColor={Colors.textPlaceholder}
+              placeholderTextColor={Colors.textTertiary}
               secureTextEntry
               value={password}
               onChangeText={setPassword}
@@ -202,11 +203,11 @@ export default function RegisterScreen() {
               autoCorrect={false}
             />
 
-            {/* Confirm password */}
+            {/* Confirm Password */}
             <TextInput
               style={styles.input}
               placeholder="确认密码"
-              placeholderTextColor={Colors.textPlaceholder}
+              placeholderTextColor={Colors.textTertiary}
               secureTextEntry
               value={confirmPassword}
               onChangeText={setConfirmPassword}
@@ -214,7 +215,6 @@ export default function RegisterScreen() {
               autoCorrect={false}
             />
 
-            {/* Register button */}
             <TouchableOpacity
               style={[styles.button, loading && styles.buttonDisabled]}
               onPress={handleRegister}
@@ -228,14 +228,13 @@ export default function RegisterScreen() {
               )}
             </TouchableOpacity>
 
-            {/* Login link */}
             <View style={styles.footer}>
               <Text style={styles.footerText}>已有账号？</Text>
               <TouchableOpacity
                 onPress={() => router.push("/(auth)/login")}
                 activeOpacity={0.7}
               >
-                <Text style={styles.link}>立即登录</Text>
+                <Text style={styles.link}>去登录</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -248,7 +247,7 @@ export default function RegisterScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.bg,
   },
   scrollContent: {
     flexGrow: 1,
@@ -258,18 +257,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.xl,
     paddingVertical: Spacing.xxl,
   },
-  title: {
-    fontSize: FontSize.title,
-    fontWeight: "700",
+  logoText: {
+    fontSize: FontSize.hero,
+    fontWeight: "800",
     textAlign: "center",
     color: Colors.textPrimary,
+    letterSpacing: 1,
   },
-  subtitle: {
-    fontSize: FontSize.md,
+  slogan: {
+    fontSize: FontSize.body,
     textAlign: "center",
     color: Colors.textSecondary,
     marginTop: Spacing.sm,
-    marginBottom: Spacing.xl,
+    marginBottom: Spacing.xxxl,
   },
   form: {
     gap: Spacing.md,
@@ -278,11 +278,11 @@ const styles = StyleSheet.create({
     height: 52,
     borderWidth: 1,
     borderColor: Colors.border,
-    borderRadius: Radius.md,
+    borderRadius: Radius.lg,
     paddingHorizontal: Spacing.md,
-    fontSize: FontSize.md,
+    fontSize: FontSize.body,
     color: Colors.textPrimary,
-    backgroundColor: Colors.background,
+    backgroundColor: Colors.bgSecondary,
   },
   codeRow: {
     flexDirection: "row",
@@ -297,19 +297,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     borderWidth: 1,
     borderColor: Colors.primary,
-    borderRadius: Radius.md,
+    borderRadius: Radius.lg,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.bgCard,
     minWidth: 100,
   },
   codeButtonDisabled: {
     borderColor: Colors.border,
-    backgroundColor: Colors.background,
+    backgroundColor: Colors.bgSecondary,
   },
   codeButtonText: {
-    color: Colors.primary,
-    fontSize: FontSize.sm,
+    color: Colors.textAccent,
+    fontSize: FontSize.small,
     fontWeight: "600",
   },
   codeButtonTextDisabled: {
@@ -318,17 +318,18 @@ const styles = StyleSheet.create({
   button: {
     height: 52,
     backgroundColor: Colors.primary,
-    borderRadius: Radius.md,
+    borderRadius: Radius.lg,
     justifyContent: "center",
     alignItems: "center",
     marginTop: Spacing.sm,
+    borderWidth: 0,
   },
   buttonDisabled: {
     opacity: 0.6,
   },
   buttonText: {
     color: Colors.textInverse,
-    fontSize: FontSize.lg,
+    fontSize: FontSize.bodyLarge,
     fontWeight: "600",
   },
   footer: {
@@ -339,12 +340,12 @@ const styles = StyleSheet.create({
     gap: Spacing.xs,
   },
   footerText: {
-    fontSize: FontSize.sm,
+    fontSize: FontSize.small,
     color: Colors.textSecondary,
   },
   link: {
-    color: Colors.primary,
-    fontSize: FontSize.sm,
+    color: Colors.textAccent,
+    fontSize: FontSize.small,
     fontWeight: "500",
   },
 });

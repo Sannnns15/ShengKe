@@ -13,7 +13,7 @@ import {
 import { router } from "expo-router";
 import { useAuth } from "../../hooks/useAuth";
 import { validatePhone, validatePassword } from "../../utils/validation";
-import { Colors, Spacing, FontSize, Radius } from "../../constants/theme";
+import { Colors, Spacing, FontSize, Radius, Shadows } from "../../constants/theme";
 
 export default function LoginScreen() {
   const [phone, setPhone] = useState("");
@@ -57,14 +57,15 @@ export default function LoginScreen() {
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
       <View style={styles.inner}>
-        <Text style={styles.title}>ShengKe 生刻</Text>
-        <Text style={styles.subtitle}>记录你的每一刻</Text>
+        {/* ── Logo / Title ── */}
+        <Text style={styles.logoText}>ShengKe</Text>
+        <Text style={styles.slogan}>生刻 · 记录你的每一刻</Text>
 
         <View style={styles.form}>
           <TextInput
             style={styles.input}
             placeholder="手机号"
-            placeholderTextColor={Colors.textPlaceholder}
+            placeholderTextColor={Colors.textTertiary}
             keyboardType="phone-pad"
             maxLength={11}
             value={phone}
@@ -75,7 +76,7 @@ export default function LoginScreen() {
           <TextInput
             style={styles.input}
             placeholder="密码"
-            placeholderTextColor={Colors.textPlaceholder}
+            placeholderTextColor={Colors.textTertiary}
             secureTextEntry
             value={password}
             onChangeText={setPassword}
@@ -119,25 +120,26 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.bg,
   },
   inner: {
     flex: 1,
     justifyContent: "center",
     paddingHorizontal: Spacing.xl,
   },
-  title: {
+  logoText: {
     fontSize: FontSize.hero,
-    fontWeight: "700",
+    fontWeight: "800",
     textAlign: "center",
     color: Colors.textPrimary,
+    letterSpacing: 1,
   },
-  subtitle: {
-    fontSize: FontSize.lg,
+  slogan: {
+    fontSize: FontSize.body,
     textAlign: "center",
     color: Colors.textSecondary,
     marginTop: Spacing.sm,
-    marginBottom: Spacing.xxl,
+    marginBottom: Spacing.xxxl,
   },
   form: {
     gap: Spacing.md,
@@ -146,26 +148,27 @@ const styles = StyleSheet.create({
     height: 52,
     borderWidth: 1,
     borderColor: Colors.border,
-    borderRadius: Radius.md,
+    borderRadius: Radius.lg,
     paddingHorizontal: Spacing.md,
-    fontSize: FontSize.md,
+    fontSize: FontSize.body,
     color: Colors.textPrimary,
-    backgroundColor: Colors.background,
+    backgroundColor: Colors.bgSecondary,
   },
   button: {
     height: 52,
     backgroundColor: Colors.primary,
-    borderRadius: Radius.md,
+    borderRadius: Radius.lg,
     justifyContent: "center",
     alignItems: "center",
     marginTop: Spacing.sm,
+    borderWidth: 0,
   },
   buttonDisabled: {
     opacity: 0.6,
   },
   buttonText: {
     color: Colors.textInverse,
-    fontSize: FontSize.lg,
+    fontSize: FontSize.bodyLarge,
     fontWeight: "600",
   },
   footer: {
@@ -175,7 +178,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.xs,
   },
   link: {
-    color: Colors.primary,
-    fontSize: FontSize.sm,
+    color: Colors.textAccent,
+    fontSize: FontSize.small,
+    fontWeight: "500",
   },
 });

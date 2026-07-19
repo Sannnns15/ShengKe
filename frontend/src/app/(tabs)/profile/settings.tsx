@@ -18,7 +18,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Ionicons } from "@expo/vector-icons";
 import * as SecureStore from "expo-secure-store";
 import { getMyProfile, updateMyProfile, deleteAccount } from "../../../services/users";
-import { Colors, Spacing, FontSize, Radius } from "../../../constants/theme";
+import { Colors, Spacing, FontSize, FontWeight, Radius } from "../../../constants/theme";
 import { useAuthStore } from "../../../stores/authStore";
 
 const DARK_MODE_KEY = "shengke_dark_mode";
@@ -162,7 +162,7 @@ export default function SettingsScreen() {
               <TextInput
                 style={styles.input}
                 placeholder="输入昵称"
-                placeholderTextColor={Colors.textPlaceholder}
+                placeholderTextColor={Colors.textTertiary}
                 value={nickname}
                 onChangeText={setNickname}
                 maxLength={30}
@@ -174,7 +174,7 @@ export default function SettingsScreen() {
               <TextInput
                 style={[styles.input, styles.textarea]}
                 placeholder="介绍一下自己..."
-                placeholderTextColor={Colors.textPlaceholder}
+                placeholderTextColor={Colors.textTertiary}
                 value={bio}
                 onChangeText={setBio}
                 multiline
@@ -276,7 +276,7 @@ export default function SettingsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: Colors.bg,
   },
   flex: { flex: 1 },
   scrollContent: {
@@ -290,7 +290,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.bgCard,
     borderBottomWidth: 0.5,
     borderBottomColor: Colors.border,
   },
@@ -301,15 +301,15 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   topBarTitle: {
-    fontSize: FontSize.lg,
-    fontWeight: "600",
+    fontSize: FontSize.bodyLarge,
+    fontWeight: FontWeight.semibold,
     color: Colors.textPrimary,
   },
 
   // ── Section ──
   sectionTitle: {
-    fontSize: FontSize.sm,
-    fontWeight: "600",
+    fontSize: FontSize.small,
+    fontWeight: FontWeight.semibold,
     color: Colors.textTertiary,
     textTransform: "uppercase",
     letterSpacing: 0.5,
@@ -318,7 +318,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
   },
   card: {
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.bgCard,
     borderRadius: Radius.md,
     marginHorizontal: Spacing.md,
     padding: Spacing.md,
@@ -329,15 +329,15 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.sm,
   },
   fieldLabel: {
-    fontSize: FontSize.sm,
-    fontWeight: "600",
+    fontSize: FontSize.small,
+    fontWeight: FontWeight.semibold,
     color: Colors.textSecondary,
     marginBottom: Spacing.xs,
   },
   input: {
-    fontSize: FontSize.md,
+    fontSize: FontSize.body,
     color: Colors.textPrimary,
-    backgroundColor: Colors.background,
+    backgroundColor: Colors.bg,
     borderRadius: Radius.sm,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
@@ -365,8 +365,8 @@ const styles = StyleSheet.create({
   },
   primaryButtonText: {
     color: Colors.textInverse,
-    fontSize: FontSize.md,
-    fontWeight: "600",
+    fontSize: FontSize.body,
+    fontWeight: FontWeight.semibold,
   },
   buttonDisabled: {
     opacity: 0.6,
@@ -385,7 +385,7 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   settingLabel: {
-    fontSize: FontSize.md,
+    fontSize: FontSize.body,
     color: Colors.textPrimary,
   },
 
@@ -400,7 +400,7 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.sm,
   },
   dangerLabel: {
-    fontSize: FontSize.md,
+    fontSize: FontSize.body,
     color: Colors.error,
   },
 

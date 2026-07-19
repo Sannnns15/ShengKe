@@ -21,7 +21,7 @@ import {
   type NotificationType,
 } from "../../../services/notifications";
 import { formatRelativeTime } from "../../../utils/format";
-import { Colors, Spacing, FontSize, Radius } from "../../../constants/theme";
+import { Colors, Spacing, FontSize, FontWeight, Radius } from "../../../constants/theme";
 
 // ── Icon Map ─────────────────────────────────────────────
 function getNotificationIcon(type: NotificationType): {
@@ -216,7 +216,7 @@ export default function NotificationsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: Colors.bg,
   },
   header: {
     flexDirection: "row",
@@ -226,14 +226,14 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.md,
   },
   title: {
-    fontSize: FontSize.title,
-    fontWeight: "800",
+    fontSize: FontSize.heading1,
+    fontWeight: FontWeight.bold,
     color: Colors.textPrimary,
   },
   markAllRead: {
-    fontSize: FontSize.sm,
+    fontSize: FontSize.small,
     color: Colors.primary,
-    fontWeight: "600",
+    fontWeight: FontWeight.semibold,
   },
 
   // ── List ──
@@ -251,7 +251,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.sm,
     borderRadius: Radius.md,
     marginBottom: Spacing.sm,
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.bgCard,
   },
   notifItemUnread: {
     backgroundColor: Colors.primaryLight + "0D",
@@ -268,19 +268,19 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   notifTitle: {
-    fontSize: FontSize.sm,
-    fontWeight: "600",
+    fontSize: FontSize.small,
+    fontWeight: FontWeight.semibold,
     color: Colors.textPrimary,
     marginBottom: 2,
   },
   notifBodyText: {
-    fontSize: FontSize.sm,
+    fontSize: FontSize.small,
     color: Colors.textSecondary,
     lineHeight: 18,
     marginBottom: 4,
   },
   notifTime: {
-    fontSize: FontSize.xs,
+    fontSize: FontSize.caption,
     color: Colors.textTertiary,
   },
   unreadDot: {
@@ -299,7 +299,7 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
   },
   emptyText: {
-    fontSize: FontSize.md,
+    fontSize: FontSize.body,
     color: Colors.textTertiary,
   },
 

@@ -12,7 +12,7 @@ import { useFocusEffect, router } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
 import { getMyProfile } from "../../../services/users";
 import { useAuthStore } from "../../../stores/authStore";
-import { Colors, Spacing, FontSize, Radius } from "../../../constants/theme";
+import { Colors, Spacing, FontSize, Radius, Shadows } from "../../../constants/theme";
 import type { UserProfile } from "../../../types/api";
 
 function getInitial(name: string): string {
@@ -113,28 +113,22 @@ export default function ProfileScreen() {
             <TouchableOpacity style={styles.menuItem}>
               <Text style={styles.menuText}>📁 我的合集</Text>
             </TouchableOpacity>
+            <View style={styles.menuDivider} />
             <TouchableOpacity
               style={styles.menuItem}
               onPress={() => router.push("/ai/mood-report")}
             >
               <Text style={styles.menuText}>📊 情绪报告</Text>
             </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={() => router.push("/ai/chat")}
-            >
-              <Text style={styles.menuText}>🤖 AI 陪伴</Text>
-            </TouchableOpacity>
+            <View style={styles.menuDivider} />
             <TouchableOpacity
               style={styles.menuItem}
               onPress={() => router.push("/(tabs)/profile/settings")}
             >
               <Text style={styles.menuText}>⚙️ 设置</Text>
             </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={handleLogout}
-            >
+            <View style={styles.menuDivider} />
+            <TouchableOpacity style={styles.menuItem} onPress={handleLogout}>
               <Text style={[styles.menuText, { color: Colors.error }]}>
                 🚪 退出登录
               </Text>
@@ -150,23 +144,25 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: Colors.bg,
   },
   center: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
+    backgroundColor: Colors.bg,
   },
   header: {
     alignItems: "center",
-    paddingVertical: Spacing.xl,
-    backgroundColor: Colors.white,
+    paddingTop: Spacing.xxl,
+    paddingBottom: Spacing.xl,
+    paddingHorizontal: Spacing.page,
   },
   avatar: {
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: Colors.primary,
+    backgroundColor: Colors.bgTertiary,
     justifyContent: "center",
     alignItems: "center",
     marginBottom: Spacing.md,
@@ -174,54 +170,58 @@ const styles = StyleSheet.create({
   avatarText: {
     fontSize: 32,
     fontWeight: "700",
-    color: Colors.textInverse,
+    color: Colors.primary,
   },
   name: {
-    fontSize: FontSize.xxl,
+    fontSize: FontSize.heading1,
     fontWeight: "700",
     color: Colors.textPrimary,
   },
   bio: {
-    fontSize: FontSize.md,
+    fontSize: FontSize.body,
     color: Colors.textTertiary,
     marginTop: Spacing.xs,
   },
   stats: {
     flexDirection: "row",
     marginTop: Spacing.lg,
-    gap: 40,
+    gap: Spacing.xxl,
   },
   statItem: {
     alignItems: "center",
   },
   statNumber: {
-    fontSize: FontSize.xl,
+    fontSize: FontSize.heading3,
     fontWeight: "700",
     color: Colors.textPrimary,
   },
   statLabel: {
-    fontSize: FontSize.sm,
+    fontSize: FontSize.caption,
     color: Colors.textTertiary,
     marginTop: 2,
   },
   menu: {
     marginTop: Spacing.lg,
-    backgroundColor: Colors.white,
-    borderRadius: Radius.md,
-    marginHorizontal: Spacing.md,
+    backgroundColor: Colors.bgCard,
+    borderRadius: Radius.lg,
+    marginHorizontal: Spacing.page,
+    ...Shadows.sm,
   },
   menuItem: {
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
-    borderBottomWidth: 0.5,
-    borderBottomColor: Colors.borderLight,
+  },
+  menuDivider: {
+    height: 0.5,
+    backgroundColor: Colors.divider,
+    marginHorizontal: Spacing.lg,
   },
   menuText: {
-    fontSize: FontSize.md,
+    fontSize: FontSize.body,
     color: Colors.textPrimary,
   },
   emptyText: {
-    fontSize: FontSize.lg,
+    fontSize: FontSize.bodyLarge,
     color: Colors.textTertiary,
     marginBottom: Spacing.md,
   },
@@ -232,18 +232,18 @@ const styles = StyleSheet.create({
     borderRadius: Radius.full,
   },
   loginButtonText: {
-    fontSize: FontSize.md,
+    fontSize: FontSize.body,
     color: Colors.textInverse,
     fontWeight: "600",
   },
   errorText: {
-    fontSize: FontSize.md,
+    fontSize: FontSize.body,
     color: Colors.error,
     marginBottom: Spacing.sm,
   },
   retryText: {
-    fontSize: FontSize.md,
-    color: Colors.primary,
+    fontSize: FontSize.body,
+    color: Colors.textAccent,
     fontWeight: "600",
   },
 });

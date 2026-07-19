@@ -13,7 +13,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { chatWithAI } from "../../services/ai";
-import { Colors, Spacing, FontSize, Radius } from "../../constants/theme";
+import { Colors, Spacing, FontSize, FontWeight, Radius } from "../../constants/theme";
 import type { ChatMessage } from "../../types/api";
 
 // ── Welcome message ────────────────────────────────────
@@ -132,7 +132,7 @@ export default function AiChatScreen() {
           <TextInput
             style={styles.input}
             placeholder="聊聊你的想法…"
-            placeholderTextColor={Colors.textPlaceholder}
+            placeholderTextColor={Colors.textTertiary}
             value={inputText}
             onChangeText={setInputText}
             multiline
@@ -161,7 +161,7 @@ export default function AiChatScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: Colors.bg,
   },
   flex: {
     flex: 1,
@@ -172,18 +172,18 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.bgCard,
     borderBottomWidth: 0.5,
     borderBottomColor: Colors.border,
   },
   backButton: {
-    fontSize: FontSize.md,
+    fontSize: FontSize.body,
     color: Colors.primary,
-    fontWeight: "600",
+    fontWeight: FontWeight.semibold,
   },
   headerTitle: {
-    fontSize: FontSize.lg,
-    fontWeight: "700",
+    fontSize: FontSize.bodyLarge,
+    fontWeight: FontWeight.bold,
     color: Colors.textPrimary,
   },
   messageList: {
@@ -203,14 +203,14 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: Radius.sm,
   },
   aiBubble: {
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.bgCard,
     alignSelf: "flex-start",
     borderBottomLeftRadius: Radius.sm,
     borderWidth: 0.5,
     borderColor: Colors.borderLight,
   },
   messageText: {
-    fontSize: FontSize.md,
+    fontSize: FontSize.body,
     lineHeight: 22,
   },
   userText: {
@@ -228,17 +228,17 @@ const styles = StyleSheet.create({
     alignItems: "flex-end",
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.bgCard,
     borderTopWidth: 0.5,
     borderTopColor: Colors.border,
   },
   input: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: Colors.bg,
     borderRadius: Radius.full,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
-    fontSize: FontSize.md,
+    fontSize: FontSize.body,
     maxHeight: 100,
     color: Colors.textPrimary,
   },
@@ -254,7 +254,7 @@ const styles = StyleSheet.create({
   },
   sendButtonText: {
     color: Colors.textInverse,
-    fontSize: FontSize.md,
-    fontWeight: "600",
+    fontSize: FontSize.body,
+    fontWeight: FontWeight.semibold,
   },
 });

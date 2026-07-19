@@ -12,7 +12,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
 import { getMoodReport } from "../../services/ai";
-import { Colors, Spacing, FontSize, Radius } from "../../constants/theme";
+import { Colors, Spacing, FontSize, FontWeight, Radius } from "../../constants/theme";
 import { getMoodLabel } from "../../constants/emotions";
 import type { MoodReport } from "../../types/api";
 
@@ -265,7 +265,7 @@ export default function MoodReportScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: Colors.bg,
   },
   center: {
     flex: 1,
@@ -281,55 +281,55 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.bgCard,
     borderBottomWidth: 0.5,
     borderBottomColor: Colors.border,
   },
   backButton: {
-    fontSize: FontSize.md,
+    fontSize: FontSize.body,
     color: Colors.primary,
-    fontWeight: "600",
+    fontWeight: FontWeight.semibold,
   },
   headerTitle: {
-    fontSize: FontSize.lg,
-    fontWeight: "700",
+    fontSize: FontSize.bodyLarge,
+    fontWeight: FontWeight.bold,
     color: Colors.textPrimary,
   },
   periodRow: {
     flexDirection: "row",
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.bgCard,
     gap: Spacing.sm,
   },
   periodButton: {
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.sm,
     borderRadius: Radius.full,
-    backgroundColor: Colors.background,
+    backgroundColor: Colors.bg,
   },
   periodButtonActive: {
     backgroundColor: Colors.primary,
   },
   periodText: {
-    fontSize: FontSize.md,
+    fontSize: FontSize.body,
     color: Colors.textSecondary,
-    fontWeight: "500",
+    fontWeight: FontWeight.medium,
   },
   periodTextActive: {
     color: Colors.textInverse,
-    fontWeight: "700",
+    fontWeight: FontWeight.bold,
   },
   card: {
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.bgCard,
     borderRadius: Radius.md,
     marginHorizontal: Spacing.md,
     marginTop: Spacing.md,
     padding: Spacing.md,
   },
   cardTitle: {
-    fontSize: FontSize.lg,
-    fontWeight: "700",
+    fontSize: FontSize.bodyLarge,
+    fontWeight: FontWeight.bold,
     color: Colors.textPrimary,
     marginBottom: Spacing.md,
   },
@@ -341,13 +341,13 @@ const styles = StyleSheet.create({
   },
   barLabel: {
     width: 60,
-    fontSize: FontSize.sm,
+    fontSize: FontSize.caption,
     color: Colors.textSecondary,
   },
   barTrack: {
     flex: 1,
     height: 20,
-    backgroundColor: Colors.background,
+    backgroundColor: Colors.bg,
     borderRadius: Radius.full,
     overflow: "hidden",
     marginHorizontal: Spacing.sm,
@@ -367,12 +367,12 @@ const styles = StyleSheet.create({
   },
   barValue: {
     width: 40,
-    fontSize: FontSize.sm,
+    fontSize: FontSize.caption,
     color: Colors.textTertiary,
     textAlign: "right",
   },
   summary: {
-    fontSize: FontSize.md,
+    fontSize: FontSize.body,
     color: Colors.textSecondary,
     marginTop: Spacing.sm,
     lineHeight: 22,
@@ -387,7 +387,7 @@ const styles = StyleSheet.create({
   },
   dayDate: {
     width: 110,
-    fontSize: FontSize.sm,
+    fontSize: FontSize.caption,
     color: Colors.textSecondary,
   },
   dayEmoji: {
@@ -398,13 +398,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   dayEmotion: {
-    fontSize: FontSize.sm,
+    fontSize: FontSize.caption,
     color: Colors.textPrimary,
   },
   dayScoreTrack: {
     width: 60,
     height: 8,
-    backgroundColor: Colors.background,
+    backgroundColor: Colors.bg,
     borderRadius: Radius.full,
     overflow: "hidden",
     marginLeft: Spacing.sm,
@@ -427,27 +427,27 @@ const styles = StyleSheet.create({
     borderRadius: Radius.full,
   },
   keywordText: {
-    fontSize: FontSize.sm,
+    fontSize: FontSize.caption,
     color: Colors.primary,
-    fontWeight: "500",
+    fontWeight: FontWeight.medium,
   },
   loadingText: {
     marginTop: Spacing.sm,
-    fontSize: FontSize.md,
+    fontSize: FontSize.body,
     color: Colors.textTertiary,
   },
   errorText: {
-    fontSize: FontSize.md,
+    fontSize: FontSize.body,
     color: Colors.error,
     marginBottom: Spacing.sm,
   },
   retryText: {
-    fontSize: FontSize.md,
+    fontSize: FontSize.body,
     color: Colors.primary,
-    fontWeight: "600",
+    fontWeight: FontWeight.semibold,
   },
   emptyText: {
-    fontSize: FontSize.md,
+    fontSize: FontSize.body,
     color: Colors.textTertiary,
   },
 });

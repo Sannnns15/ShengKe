@@ -19,7 +19,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { createMoment } from "../../../services/moments";
 import { uploadMedia } from "../../../services/media";
-import { Colors, Spacing, FontSize, Radius } from "../../../constants/theme";
+import { Colors, Spacing, FontSize, FontWeight, Radius } from "../../../constants/theme";
 import type { CreateMomentParams } from "../../../types/api";
 
 // ── Mood Options ────────
@@ -224,7 +224,7 @@ export default function CreateScreen() {
           <TextInput
             style={styles.titleInput}
             placeholder="添加一个标题（可选）"
-            placeholderTextColor={Colors.textPlaceholder}
+            placeholderTextColor={Colors.textTertiary}
             value={title}
             onChangeText={setTitle}
             maxLength={100}
@@ -235,7 +235,7 @@ export default function CreateScreen() {
           <TextInput
             style={styles.contentInput}
             placeholder="此时此刻，你想记录什么…"
-            placeholderTextColor={Colors.textPlaceholder}
+            placeholderTextColor={Colors.textTertiary}
             value={content}
             onChangeText={setContent}
             multiline
@@ -291,7 +291,7 @@ export default function CreateScreen() {
                 ref={tagInputRef}
                 style={styles.tagTextInput}
                 placeholder="输入标签后按回车添加"
-                placeholderTextColor={Colors.textPlaceholder}
+                placeholderTextColor={Colors.textTertiary}
                 value={tagInput}
                 onChangeText={setTagInput}
                 onSubmitEditing={handleTagInputSubmit}
@@ -319,18 +319,18 @@ export default function CreateScreen() {
               <TextInput
                 style={styles.infoInput}
                 placeholder="天气（如：晴天 25°C）"
-                placeholderTextColor={Colors.textPlaceholder}
+                placeholderTextColor={Colors.textTertiary}
                 value={weather}
                 onChangeText={setWeather}
-                maxLength={30}
+                maxLength={50}
               />
             </View>
             <View style={[styles.infoInputRow, { marginTop: Spacing.sm }]}>
               <Ionicons name="location-outline" size={20} color={Colors.textSecondary} style={styles.infoIcon} />
               <TextInput
                 style={styles.infoInput}
-                placeholder="位置（如：北京朝阳区）"
-                placeholderTextColor={Colors.textPlaceholder}
+                placeholder="位置"
+                placeholderTextColor={Colors.textTertiary}
                 value={location}
                 onChangeText={setLocation}
                 maxLength={100}
@@ -344,7 +344,7 @@ export default function CreateScreen() {
             <View style={styles.moodRow}>
               {CREATE_MOODS.map((m) => (
                 <TouchableOpacity
-                  key={m.emoji}
+                  key={m.label}
                   style={[
                     styles.moodButton,
                     mood === m.emoji && styles.moodButtonActive,
@@ -352,6 +352,7 @@ export default function CreateScreen() {
                   onPress={() =>
                     setMood(mood === m.emoji ? null : m.emoji)
                   }
+                  activeOpacity={0.7}
                 >
                   <Text
                     style={[
@@ -387,6 +388,7 @@ export default function CreateScreen() {
                       styles.privacyButtonActive,
                   ]}
                   onPress={() => setPrivacyLevel(opt.value)}
+                  activeOpacity={0.7}
                 >
                   <Ionicons
                     name={
@@ -429,7 +431,7 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.bgCard,
   },
 
   // ── Top Bar ──
@@ -448,12 +450,12 @@ const styles = StyleSheet.create({
     minWidth: 60,
   },
   topBarTitle: {
-    fontSize: FontSize.lg,
-    fontWeight: "600",
+    fontSize: FontSize.bodyLarge,
+    fontWeight: FontWeight.semibold,
     color: Colors.textPrimary,
   },
   cancelText: {
-    fontSize: FontSize.md,
+    fontSize: FontSize.body,
     color: Colors.textSecondary,
   },
   submitBtn: {
@@ -469,9 +471,9 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primaryLight + "60",
   },
   submitBtnText: {
-    fontSize: FontSize.md,
+    fontSize: FontSize.body,
     color: Colors.textInverse,
-    fontWeight: "600",
+    fontWeight: FontWeight.semibold,
   },
   submitBtnTextDisabled: {
     color: Colors.textInverse + "80",
@@ -485,8 +487,8 @@ const styles = StyleSheet.create({
 
   // ── Inputs ──
   titleInput: {
-    fontSize: FontSize.lg,
-    fontWeight: "600",
+    fontSize: FontSize.bodyLarge,
+    fontWeight: FontWeight.semibold,
     color: Colors.textPrimary,
     paddingVertical: Spacing.sm,
   },
@@ -496,15 +498,15 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.sm,
   },
   contentInput: {
-    fontSize: FontSize.lg,
+    fontSize: FontSize.bodyLarge,
     color: Colors.textPrimary,
     lineHeight: 26,
     minHeight: 160,
     paddingVertical: Spacing.sm,
   },
   charCount: {
-    fontSize: FontSize.xs,
-    color: Colors.textPlaceholder,
+    fontSize: FontSize.caption,
+    color: Colors.textTertiary,
     textAlign: "right",
     marginBottom: Spacing.lg,
   },
@@ -514,8 +516,8 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.lg,
   },
   sectionLabel: {
-    fontSize: FontSize.sm,
-    fontWeight: "600",
+    fontSize: FontSize.small,
+    fontWeight: FontWeight.semibold,
     color: Colors.textSecondary,
     marginBottom: Spacing.sm,
   },
@@ -552,7 +554,7 @@ const styles = StyleSheet.create({
     borderStyle: "dashed",
   },
   mediaAddText: {
-    fontSize: FontSize.xs,
+    fontSize: FontSize.caption,
     color: Colors.textTertiary,
     marginTop: 2,
   },
@@ -574,7 +576,7 @@ const styles = StyleSheet.create({
     borderRadius: Radius.full,
   },
   tagChipText: {
-    fontSize: FontSize.sm,
+    fontSize: FontSize.small,
     color: Colors.primary,
   },
   tagInputRow: {
@@ -584,9 +586,9 @@ const styles = StyleSheet.create({
   },
   tagTextInput: {
     flex: 1,
-    fontSize: FontSize.sm,
+    fontSize: FontSize.small,
     color: Colors.textPrimary,
-    backgroundColor: Colors.background,
+    backgroundColor: Colors.bg,
     borderRadius: Radius.md,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
@@ -609,7 +611,7 @@ const styles = StyleSheet.create({
   infoInputRow: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: Colors.background,
+    backgroundColor: Colors.bg,
     borderRadius: Radius.md,
     borderWidth: 1,
     borderColor: Colors.border,
@@ -620,7 +622,7 @@ const styles = StyleSheet.create({
   },
   infoInput: {
     flex: 1,
-    fontSize: FontSize.sm,
+    fontSize: FontSize.small,
     color: Colors.textPrimary,
     paddingVertical: Spacing.sm,
   },
@@ -653,12 +655,12 @@ const styles = StyleSheet.create({
     opacity: 1,
   },
   moodLabel: {
-    fontSize: FontSize.sm,
+    fontSize: FontSize.small,
     color: Colors.textSecondary,
   },
   moodLabelActive: {
     color: Colors.primary,
-    fontWeight: "600",
+    fontWeight: FontWeight.semibold,
   },
 
   // ── Privacy Picker ──
@@ -683,11 +685,11 @@ const styles = StyleSheet.create({
     borderColor: Colors.primary,
   },
   privacyLabel: {
-    fontSize: FontSize.sm,
+    fontSize: FontSize.small,
     color: Colors.textSecondary,
   },
   privacyLabelActive: {
     color: Colors.primary,
-    fontWeight: "600",
+    fontWeight: FontWeight.semibold,
   },
 });
