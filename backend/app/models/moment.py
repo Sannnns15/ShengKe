@@ -13,7 +13,7 @@ from sqlalchemy import (
     ARRAY,
 )
 from sqlalchemy.dialects.postgresql import UUID, JSONB
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models import Base
 from app.utils import uuid_v7
@@ -65,6 +65,11 @@ class Moment(Base):
     )
     deleted_at: Mapped[Optional[datetime]] = mapped_column(
         DateTime(timezone=True), nullable=True
+    )
+
+    # Relationships
+    comments: Mapped[list["Comment"]] = relationship(
+        "Comment", back_populates="moment", lazy="selectin"
     )
 
     def __repr__(self) -> str:
