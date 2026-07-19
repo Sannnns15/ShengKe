@@ -247,6 +247,32 @@ export default function MomentDetailScreen() {
             </View>
           )}
 
+          {/* ── AI Emotion ── */}
+          {moment.ai_emotion && (
+            <View style={styles.aiSection}>
+              <View style={styles.aiSectionTitleRow}>
+                <Ionicons name="sparkles" size={14} color={Colors.primary} />
+                <Text style={styles.aiSectionTitle}> AI 情绪分析</Text>
+              </View>
+              <View style={styles.emotionRow}>
+                <Text style={styles.emotionIcon}>
+                  {moment.ai_emotion === "positive"
+                    ? "😊"
+                    : moment.ai_emotion === "negative"
+                      ? "😢"
+                      : "😐"}
+                </Text>
+                <Text style={styles.emotionLabel}>
+                  {moment.ai_emotion === "positive"
+                    ? "正面"
+                    : moment.ai_emotion === "negative"
+                      ? "负面"
+                      : "中性"}
+                </Text>
+              </View>
+            </View>
+          )}
+
           {/* ── Stats Row ── */}
           <View style={styles.statsRow}>
             <View style={styles.stat}>
@@ -511,6 +537,19 @@ const styles = StyleSheet.create({
     fontSize: FontSize.sm,
     color: Colors.textSecondary,
     lineHeight: 20,
+  },
+  emotionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  emotionIcon: {
+    fontSize: 28,
+  },
+  emotionLabel: {
+    fontSize: FontSize.md,
+    fontWeight: "600",
+    color: Colors.textPrimary,
   },
 
   // ── Stats ──

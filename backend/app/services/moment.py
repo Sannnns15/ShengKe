@@ -8,6 +8,27 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.moment import Moment
 from app.models.follow import Follow
+from app.models.tag import Tag, MomentTag
+
+
+async def _ensure_tags(
+    db: AsyncSession,
+    tag_names: list[str],
+) -> list[Tag]:
+    """Get or create Tag records by name. Returns the Tag objects."""
+    tags: list[Tag] = []
+    for name in tag_names:
+        name = name.strip()
+        if not name:
+            continue
+        result = await db.execute(select(Tag).where(Tag.name == name))
+        tag = result.scalars().first()
+        if tag is None:
+            tag = Tag(name=name)
+            db.add(tag)
+            await db.flush()
+        tags.append(tag)
+    return tags
 
 
 async def create_moment(
@@ -34,6 +55,16 @@ async def create_moment(
         visibility_group=data.get("visibility_group"),
     )
     db.add(moment)
+    await db.flush()
+
+    # Create MomentTag associations if tag_names provided
+    tag_names: list[str] | None = data.get("tag_names")
+    if tag_names:
+        tags = await _ensure_tags(db, tag_names)
+        for tag in tags:
+            moment_tag = MomentTag(moment_id=moment.id, tag_id=tag.id)
+            db.add(moment_tag)
+
     await db.commit()
     await db.refresh(moment)
     return moment

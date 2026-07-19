@@ -82,6 +82,8 @@ export interface CreateMomentParams {
   weather?: string;
   location_name?: string;
   privacy_level?: number;
+  media_urls?: string[];
+  custom_tags?: string[];
 }
 
 // ══ User Types ════════════════════════════════════════════
@@ -135,6 +137,23 @@ export interface MomentAnalysis {
   ai_emotion: string;
   ai_tags: string[];
   created_at: string;
+}
+
+// ══ Collection Types ═══════════════════════════════════════
+
+export interface Collection {
+  id: string;
+  user_id: string;
+  name: string;
+  description?: string;
+  sort_order: number;
+  moment_count?: number;
+  created_at: string;
+}
+
+export interface MediaUpload {
+  url: string;
+  object_key: string;
 }
 
 export interface ChatMessage {

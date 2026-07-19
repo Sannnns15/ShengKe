@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useRef } from "react";
 import {
   View,
   Text,
@@ -10,16 +10,19 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { useMutation } from "@tanstack/react-query";
 import { Ionicons } from "@expo/vector-icons";
+import * as ImagePicker from "expo-image-picker";
 import { createMoment } from "../../../services/moments";
+import { uploadMedia } from "../../../services/media";
 import { Colors, Spacing, FontSize, Radius } from "../../../constants/theme";
 import type { CreateMomentParams } from "../../../types/api";
 
-// ── Mood Options ──────── (curated subset for creation) │
+// ── Mood Options ────────
 const CREATE_MOODS = [
   { emoji: "😊", label: "开心" },
   { emoji: "😢", label: "难过" },
@@ -39,21 +42,113 @@ const PRIVACY_OPTIONS = [
 
 export default function CreateScreen() {
   const router = useRouter();
+  const tagInputRef = useRef<TextInput>(null);
 
   // ── Form State ──
   const [content, setContent] = useState("");
   const [title, setTitle] = useState("");
   const [mood, setMood] = useState<string | null>(null);
-  const [privacyLevel, setPrivacyLevel] = useState<number>(3); // default: public
+  const [privacyLevel, setPrivacyLevel] = useState<number>(3);
+  const [selectedImages, setSelectedImages] = useState<string[]>([]);
+  const [tags, setTags] = useState<string[]>([]);
+  const [tagInput, setTagInput] = useState("");
+  const [weather, setWeather] = useState("");
+  const [location, setLocation] = useState("");
+
+  // ── Image Picker ──
+  const handlePickImages = useCallback(async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert("权限不足", "需要相册权限才能选择图片");
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsMultipleSelection: true,
+      quality: 0.8,
+      selectionLimit: 9 - selectedImages.length,
+    });
+
+    if (!result.canceled && result.assets) {
+      const newUris = result.assets.map((a: { uri: string }) => a.uri);
+      setSelectedImages((prev) =>
+        [...prev, ...newUris].slice(0, 9)
+      );
+    }
+  }, [selectedImages.length]);
+
+  const handleRemoveImage = useCallback((index: number) => {
+    setSelectedImages((prev) => prev.filter((_, i) => i !== index));
+  }, []);
+
+  // ── Tag Input ──
+  const handleAddTag = useCallback(() => {
+    const trimmed = tagInput.trim();
+    if (!trimmed) return;
+    if (tags.length >= 10) {
+      Alert.alert("提示", "最多添加 10 个标签");
+      return;
+    }
+    if (tags.includes(trimmed)) {
+      Alert.alert("提示", "标签已存在");
+      return;
+    }
+    setTags((prev) => [...prev, trimmed]);
+    setTagInput("");
+  }, [tagInput, tags]);
+
+  const handleRemoveTag = useCallback((index: number) => {
+    setTags((prev) => prev.filter((_, i) => i !== index));
+  }, []);
+
+  const handleTagInputSubmit = useCallback(() => {
+    handleAddTag();
+  }, [handleAddTag]);
+
+  // ── Reset Form ──
+  const resetForm = useCallback(() => {
+    setContent("");
+    setTitle("");
+    setMood(null);
+    setPrivacyLevel(3);
+    setSelectedImages([]);
+    setTags([]);
+    setTagInput("");
+    setWeather("");
+    setLocation("");
+  }, []);
 
   // ── Mutation ──
   const { mutate: doCreate, isPending } = useMutation({
-    mutationFn: (params: CreateMomentParams) => createMoment(params),
+    mutationFn: async (params: CreateMomentParams) => {
+      // Upload images first if any
+      if (selectedImages.length > 0) {
+        const uploadedUrls: string[] = [];
+        for (const uri of selectedImages) {
+          const result = await uploadMedia(uri);
+          uploadedUrls.push(result.url);
+        }
+        params.media_urls = uploadedUrls;
+      }
+      // Custom tags
+      if (tags.length > 0) {
+        params.custom_tags = tags;
+      }
+      // Weather & location
+      if (weather.trim()) params.weather = weather.trim();
+      if (location.trim()) params.location_name = location.trim();
+
+      return createMoment(params);
+    },
     onSuccess: () => {
       Alert.alert("发布成功", "你的生刻已记录", [
         {
           text: "好的",
-          onPress: () => router.replace("/(tabs)/home"),
+          onPress: () => {
+            resetForm();
+            router.replace("/(tabs)/home");
+          },
         },
       ]);
     },
@@ -125,7 +220,7 @@ export default function CreateScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* ── Title Input (optional) ── */}
+          {/* ── Title Input ── */}
           <TextInput
             style={styles.titleInput}
             placeholder="添加一个标题（可选）"
@@ -148,6 +243,100 @@ export default function CreateScreen() {
             maxLength={2000}
           />
           <Text style={styles.charCount}>{content.length}/2000</Text>
+
+          {/* ── Media Selection ── */}
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>图片（最多 9 张）</Text>
+            <View style={styles.mediaRow}>
+              {selectedImages.map((uri, index) => (
+                <View key={`img-${index}`} style={styles.mediaThumbWrap}>
+                  <Image source={{ uri }} style={styles.mediaThumb} />
+                  <TouchableOpacity
+                    style={styles.mediaRemoveBtn}
+                    onPress={() => handleRemoveImage(index)}
+                  >
+                    <Ionicons name="close-circle" size={22} color={Colors.error} />
+                  </TouchableOpacity>
+                </View>
+              ))}
+              {selectedImages.length < 9 && (
+                <TouchableOpacity
+                  style={styles.mediaAddButton}
+                  onPress={handlePickImages}
+                >
+                  <Ionicons name="camera-outline" size={28} color={Colors.textSecondary} />
+                  <Text style={styles.mediaAddText}>
+                    {selectedImages.length}/9
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+
+          {/* ── Custom Tags Input ── */}
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>自定义标签</Text>
+            <View style={styles.tagsWrap}>
+              {tags.map((tag, index) => (
+                <View key={`tag-${index}`} style={styles.tagChip}>
+                  <Text style={styles.tagChipText}>#{tag}</Text>
+                  <TouchableOpacity onPress={() => handleRemoveTag(index)}>
+                    <Ionicons name="close" size={14} color={Colors.textSecondary} />
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </View>
+            <View style={styles.tagInputRow}>
+              <TextInput
+                ref={tagInputRef}
+                style={styles.tagTextInput}
+                placeholder="输入标签后按回车添加"
+                placeholderTextColor={Colors.textPlaceholder}
+                value={tagInput}
+                onChangeText={setTagInput}
+                onSubmitEditing={handleTagInputSubmit}
+                returnKeyType="done"
+                maxLength={20}
+              />
+              <TouchableOpacity
+                style={[
+                  styles.tagAddBtn,
+                  !tagInput.trim() && styles.tagAddBtnDisabled,
+                ]}
+                onPress={handleAddTag}
+                disabled={!tagInput.trim()}
+              >
+                <Ionicons name="add" size={18} color={Colors.textInverse} />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* ── Weather & Location ── */}
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>天气与位置</Text>
+            <View style={styles.infoInputRow}>
+              <Ionicons name="partly-sunny-outline" size={20} color={Colors.textSecondary} style={styles.infoIcon} />
+              <TextInput
+                style={styles.infoInput}
+                placeholder="天气（如：晴天 25°C）"
+                placeholderTextColor={Colors.textPlaceholder}
+                value={weather}
+                onChangeText={setWeather}
+                maxLength={30}
+              />
+            </View>
+            <View style={[styles.infoInputRow, { marginTop: Spacing.sm }]}>
+              <Ionicons name="location-outline" size={20} color={Colors.textSecondary} style={styles.infoIcon} />
+              <TextInput
+                style={styles.infoInput}
+                placeholder="位置（如：北京朝阳区）"
+                placeholderTextColor={Colors.textPlaceholder}
+                value={location}
+                onChangeText={setLocation}
+                maxLength={100}
+              />
+            </View>
+          </View>
 
           {/* ── Mood Picker ── */}
           <View style={styles.section}>
@@ -233,7 +422,7 @@ export default function CreateScreen() {
   );
 }
 
-// ── Styles ──────────────────────────────────────────────
+// ── Styles ──
 const styles = StyleSheet.create({
   flex: {
     flex: 1,
@@ -329,6 +518,111 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: Colors.textSecondary,
     marginBottom: Spacing.sm,
+  },
+
+  // ── Media Selection ──
+  mediaRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.sm,
+  },
+  mediaThumbWrap: {
+    position: "relative",
+  },
+  mediaThumb: {
+    width: 80,
+    height: 80,
+    borderRadius: Radius.sm,
+    backgroundColor: Colors.borderLight,
+  },
+  mediaRemoveBtn: {
+    position: "absolute",
+    top: -6,
+    right: -6,
+  },
+  mediaAddButton: {
+    width: 80,
+    height: 80,
+    borderRadius: Radius.sm,
+    backgroundColor: Colors.borderLight,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderStyle: "dashed",
+  },
+  mediaAddText: {
+    fontSize: FontSize.xs,
+    color: Colors.textTertiary,
+    marginTop: 2,
+  },
+
+  // ── Tags ──
+  tagsWrap: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.xs,
+    marginBottom: Spacing.sm,
+  },
+  tagChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: Colors.primaryLight + "20",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    borderRadius: Radius.full,
+  },
+  tagChipText: {
+    fontSize: FontSize.sm,
+    color: Colors.primary,
+  },
+  tagInputRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  tagTextInput: {
+    flex: 1,
+    fontSize: FontSize.sm,
+    color: Colors.textPrimary,
+    backgroundColor: Colors.background,
+    borderRadius: Radius.md,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  tagAddBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Colors.primary,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  tagAddBtnDisabled: {
+    backgroundColor: Colors.primaryLight + "60",
+  },
+
+  // ── Info Input (Weather / Location) ──
+  infoInputRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: Colors.background,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    paddingHorizontal: Spacing.md,
+  },
+  infoIcon: {
+    marginRight: Spacing.sm,
+  },
+  infoInput: {
+    flex: 1,
+    fontSize: FontSize.sm,
+    color: Colors.textPrimary,
+    paddingVertical: Spacing.sm,
   },
 
   // ── Mood Picker ──

@@ -8,6 +8,7 @@
     "axios": "^1.7.0",
     "expo": "~57.0.7",
     "expo-constants": "~18.0.0",
+    "expo-image-picker": "~57.0.5",
     "expo-linking": "~8.0.0",
     "expo-router": "~6.0.6",
     "expo-secure-store": "~15.0.0",
@@ -25,7 +26,8 @@
   "devDependencies": {
     "@types/node": "^26.1.1",
     "@types/react": "~19.2.2",
-    "typescript": "~6.0.3"
+    "typescript": "~6.0.3",
+    "vitest": "^4.1.10"
   },
   "scripts": {
     "start": "expo start",
