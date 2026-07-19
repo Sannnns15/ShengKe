@@ -113,8 +113,17 @@ export default function ProfileScreen() {
             <TouchableOpacity style={styles.menuItem}>
               <Text style={styles.menuText}>📁 我的合集</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.menuItem}>
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => router.push("/ai/mood-report")}
+            >
               <Text style={styles.menuText}>📊 情绪报告</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => router.push("/ai/chat")}
+            >
+              <Text style={styles.menuText}>🤖 AI 陪伴</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.menuItem}

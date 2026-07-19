@@ -110,3 +110,35 @@ export interface PaginatedData<T> {
   items: T[];
   meta: PaginationMeta;
 }
+
+// ══ AI Types ═══════════════════════════════════════════════
+
+export interface MoodReport {
+  period: string;
+  summary: string;
+  emotion_distribution: {
+    positive: number;
+    neutral: number;
+    negative: number;
+  };
+  daily_moods: Array<{
+    date: string;
+    dominant_emotion: string;
+    mood_score: number;
+  }>;
+  top_keywords: string[];
+}
+
+export interface MomentAnalysis {
+  id: string;
+  ai_summary: string;
+  ai_emotion: string;
+  ai_tags: string[];
+  created_at: string;
+}
+
+export interface ChatMessage {
+  role: "user" | "assistant";
+  content: string;
+  created_at?: string;
+}
