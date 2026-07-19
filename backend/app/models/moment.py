@@ -11,6 +11,7 @@ from sqlalchemy import (
     Text,
     DateTime,
     ARRAY,
+    ForeignKey,
 )
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -26,7 +27,10 @@ class Moment(Base):
         UUID(as_uuid=True), primary_key=True, default=uuid_v7
     )
     user_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), nullable=False, index=True
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     title: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
     content: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
@@ -68,6 +72,9 @@ class Moment(Base):
     )
 
     # Relationships
+    author: Mapped["User"] = relationship(
+        "User", back_populates="moments"
+    )
     comments: Mapped[list["Comment"]] = relationship(
         "Comment", back_populates="moment", lazy="selectin"
     )

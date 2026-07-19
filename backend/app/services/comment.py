@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.comment import Comment
 from app.models.moment import Moment
+from app.services.notification import create_notification
 
 
 async def create_comment(
@@ -43,6 +44,20 @@ async def create_comment(
 
     await db.commit()
     await db.refresh(comment)
+
+    # Notify moment author about the new comment
+    if moment and moment.user_id != user_id:
+        content_preview = content[:100] if len(content) > 100 else content
+        await create_notification(
+            db,
+            user_id=moment.user_id,
+            actor_id=user_id,
+            type="comment",
+            target_type="moment",
+            target_id=moment_id,
+            content=content_preview,
+        )
+
     return comment
 
 

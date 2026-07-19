@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.like import Like
 from app.models.moment import Moment
 from app.models.comment import Comment
+from app.services.notification import create_notification
 
 
 async def toggle_like(
@@ -59,6 +60,37 @@ async def toggle_like(
         db.add(like)
         delta = 1
         is_liked = True
+
+    # Send notification if this is a new like (not a re-like from unliked state)
+    if is_liked and delta > 0:
+        if target_type == 1:
+            # Notify moment author
+            stmt = select(Moment).where(Moment.id == target_id, Moment.deleted_at.is_(None))
+            result = await db.execute(stmt)
+            moment = result.scalars().first()
+            if moment and moment.user_id != user_id:
+                await create_notification(
+                    db,
+                    user_id=moment.user_id,
+                    actor_id=user_id,
+                    type="like",
+                    target_type="moment",
+                    target_id=target_id,
+                )
+        elif target_type == 2:
+            # Notify comment author
+            stmt = select(Comment).where(Comment.id == target_id, Comment.deleted_at.is_(None))
+            result = await db.execute(stmt)
+            comment = result.scalars().first()
+            if comment and comment.user_id != user_id:
+                await create_notification(
+                    db,
+                    user_id=comment.user_id,
+                    actor_id=user_id,
+                    type="like",
+                    target_type="comment",
+                    target_id=target_id,
+                )
 
     # Update like_count on the target
     if target_type == 1:

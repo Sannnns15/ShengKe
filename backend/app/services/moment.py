@@ -7,6 +7,7 @@ from sqlalchemy import select, func, or_, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.moment import Moment
+from app.models.follow import Follow
 
 
 async def create_moment(
@@ -129,23 +130,62 @@ async def get_feed(
     page: int = 1,
     page_size: int = 20,
 ) -> tuple[list[Moment], int]:
-    """Get the home Feed — public moments and moments from followed users.
+    """Get the home Feed — moments from followed users and public moments.
 
+    Includes:
     - Public (privacy_level == 0) moments from everyone
-    - Follow-visible (privacy_level == 1) moments from people the user follows
-    - Excludes the user's own moments (those go elsewhere)
-
-    TODO: Add mutual-only (privacy_level == 2) once Follow model exists.
+    - Follow-visible (privacy_level == 1) moments from followed users
+    - Mutual-only (privacy_level == 2) moments from mutual followers
+    - Excludes archived (is_archived=True), deleted, and own moments
     """
+
+    # Get IDs of users the current user follows
+    following_result = await db.execute(
+        select(Follow.following_id).where(
+            Follow.follower_id == user_id,
+            Follow.deleted_at.is_(None),
+        )
+    )
+    following_ids = {row[0] for row in following_result.all()}
+
+    # Get IDs of users who follow the current user (mutual check)
+    mutual_ids: set[UUID] = set()
+    if following_ids:
+        mutual_result = await db.execute(
+            select(Follow.follower_id).where(
+                Follow.following_id == user_id,
+                Follow.follower_id.in_(following_ids),
+                Follow.deleted_at.is_(None),
+            )
+        )
+        mutual_ids = {row[0] for row in mutual_result.all()}
+
+    # Build feed conditions
     conditions = [
         Moment.deleted_at.is_(None),
+        Moment.is_archived == False,  # noqa: E712
         Moment.user_id != user_id,
-        or_(
-            Moment.privacy_level == 0,  # Public
-            # TODO: privacy_level == 1 (followers only) for followed users
-            # TODO: privacy_level == 2 (mutual only) for mutual followers
-        ),
     ]
+
+    # Build OR conditions for visibility:
+    # - privacy_level == 0: always shown (public)
+    # - privacy_level == 1: shown if user follows the author (followers only)
+    # - privacy_level == 2: shown only if mutual
+    visibility_clauses = [
+        Moment.privacy_level == 0,  # Public
+    ]
+
+    if following_ids:
+        visibility_clauses.append(
+            (Moment.privacy_level == 1) & Moment.user_id.in_(following_ids)
+        )
+
+    if mutual_ids:
+        visibility_clauses.append(
+            (Moment.privacy_level == 2) & Moment.user_id.in_(mutual_ids)
+        )
+
+    conditions.append(or_(*visibility_clauses))
 
     # Count
     count_query = select(func.count(Moment.id)).where(*conditions)

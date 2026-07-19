@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.follow import Follow
 from app.models.user import User
+from app.services.notification import create_notification
 
 
 async def follow_user(
@@ -62,6 +63,15 @@ async def follow_user(
     )
     db.add(follow)
     await db.commit()
+
+    # Notify the followed user
+    await create_notification(
+        db,
+        user_id=following_id,
+        actor_id=follower_id,
+        type="follow",
+    )
+
     return True
 
 

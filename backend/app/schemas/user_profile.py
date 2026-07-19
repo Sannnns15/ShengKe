@@ -18,6 +18,7 @@ class UserProfileResponse(BaseModel):
     moments_count: int = 0
     followers_count: int = 0
     following_count: int = 0
+    is_following: bool = False
     created_at: datetime
 
     class Config:

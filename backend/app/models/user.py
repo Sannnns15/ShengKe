@@ -49,7 +49,7 @@ class User(Base):
 
     # Relationships
     moments: Mapped[list[Moment]] = relationship(
-        "Moment", backref="author", lazy="selectin"
+        "Moment", back_populates="author", lazy="selectin"
     )
     comments: Mapped[list[Comment]] = relationship(
         "Comment", back_populates="user", lazy="selectin"
