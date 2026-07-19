@@ -11,7 +11,9 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { router } from "expo-router";
-import { useAuth } from "../../stores/authStore";
+import { useAuth } from "../../hooks/useAuth";
+import { validatePhone, validatePassword } from "../../utils/validation";
+import { Colors, Spacing, FontSize, Radius } from "../../constants/theme";
 
 export default function LoginScreen() {
   const [phone, setPhone] = useState("");
@@ -20,16 +22,30 @@ export default function LoginScreen() {
   const { login } = useAuth();
 
   const handleLogin = async () => {
-    if (!phone.trim() || !password.trim()) {
-      Alert.alert("提示", "请输入手机号和密码");
+    // Validate phone
+    const phoneErr = validatePhone(phone);
+    if (phoneErr) {
+      Alert.alert("提示", phoneErr);
       return;
     }
+
+    // Validate password
+    const pwdErr = validatePassword(password);
+    if (pwdErr) {
+      Alert.alert("提示", pwdErr);
+      return;
+    }
+
     setLoading(true);
     try {
       await login(phone.trim(), password);
       router.replace("/(tabs)/home");
     } catch (error: any) {
-      Alert.alert("登录失败", error.message || "请检查手机号和密码");
+      const message =
+        error?.response?.data?.message ||
+        error?.message ||
+        "登录失败，请检查手机号和密码";
+      Alert.alert("登录失败", message);
     } finally {
       setLoading(false);
     }
@@ -48,38 +64,49 @@ export default function LoginScreen() {
           <TextInput
             style={styles.input}
             placeholder="手机号"
-            placeholderTextColor="#999"
+            placeholderTextColor={Colors.textPlaceholder}
             keyboardType="phone-pad"
+            maxLength={11}
             value={phone}
-            onChangeText={setPhone}
+            onChangeText={(t) => setPhone(t.replace(/[^0-9]/g, ""))}
             autoCapitalize="none"
+            autoCorrect={false}
           />
           <TextInput
             style={styles.input}
             placeholder="密码"
-            placeholderTextColor="#999"
+            placeholderTextColor={Colors.textPlaceholder}
             secureTextEntry
             value={password}
             onChangeText={setPassword}
+            autoCapitalize="none"
+            autoCorrect={false}
           />
 
           <TouchableOpacity
             style={[styles.button, loading && styles.buttonDisabled]}
             onPress={handleLogin}
             disabled={loading}
+            activeOpacity={0.7}
           >
             {loading ? (
-              <ActivityIndicator color="#fff" />
+              <ActivityIndicator color={Colors.textInverse} />
             ) : (
               <Text style={styles.buttonText}>登录</Text>
             )}
           </TouchableOpacity>
 
           <View style={styles.footer}>
-            <TouchableOpacity onPress={() => router.push("/register")}>
+            <TouchableOpacity
+              onPress={() => router.push("/(auth)/register")}
+              activeOpacity={0.7}
+            >
               <Text style={styles.link}>注册账号</Text>
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => router.push("/reset-password")}>
+            <TouchableOpacity
+              onPress={() => router.push("/(auth)/reset-password")}
+              activeOpacity={0.7}
+            >
               <Text style={styles.link}>忘记密码？</Text>
             </TouchableOpacity>
           </View>
@@ -92,63 +119,63 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#fff",
+    backgroundColor: Colors.white,
   },
   inner: {
     flex: 1,
     justifyContent: "center",
-    paddingHorizontal: 32,
+    paddingHorizontal: Spacing.xl,
   },
   title: {
-    fontSize: 32,
+    fontSize: FontSize.hero,
     fontWeight: "700",
     textAlign: "center",
-    color: "#1a1a1a",
+    color: Colors.textPrimary,
   },
   subtitle: {
-    fontSize: 16,
+    fontSize: FontSize.lg,
     textAlign: "center",
-    color: "#666",
-    marginTop: 8,
-    marginBottom: 48,
+    color: Colors.textSecondary,
+    marginTop: Spacing.sm,
+    marginBottom: Spacing.xxl,
   },
   form: {
-    gap: 16,
+    gap: Spacing.md,
   },
   input: {
     height: 52,
     borderWidth: 1,
-    borderColor: "#e0e0e0",
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    fontSize: 16,
-    color: "#1a1a1a",
-    backgroundColor: "#f8f8f8",
+    borderColor: Colors.border,
+    borderRadius: Radius.md,
+    paddingHorizontal: Spacing.md,
+    fontSize: FontSize.md,
+    color: Colors.textPrimary,
+    backgroundColor: Colors.background,
   },
   button: {
     height: 52,
-    backgroundColor: "#4A90D9",
-    borderRadius: 12,
+    backgroundColor: Colors.primary,
+    borderRadius: Radius.md,
     justifyContent: "center",
     alignItems: "center",
-    marginTop: 8,
+    marginTop: Spacing.sm,
   },
   buttonDisabled: {
     opacity: 0.6,
   },
   buttonText: {
-    color: "#fff",
-    fontSize: 18,
+    color: Colors.textInverse,
+    fontSize: FontSize.lg,
     fontWeight: "600",
   },
   footer: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginTop: 16,
-    paddingHorizontal: 4,
+    marginTop: Spacing.md,
+    paddingHorizontal: Spacing.xs,
   },
   link: {
-    color: "#4A90D9",
-    fontSize: 14,
+    color: Colors.primary,
+    fontSize: FontSize.sm,
   },
 });

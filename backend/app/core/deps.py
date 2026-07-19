@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from typing import AsyncGenerator
 from uuid import UUID
 
 from fastapi import Depends, HTTPException, status
@@ -8,14 +7,10 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings, Settings
+from app.core.database import get_db  # noqa: F401
 from app.core.security import decode_access_token
 
 bearer_scheme = HTTPBearer(auto_error=False)
-
-
-async def get_db() -> AsyncGenerator[AsyncSession, None]:
-    """Provide an async SQLAlchemy session (placeholder — wired in main.py)."""
-    raise NotImplementedError("DB session factory must be wired via lifespan / Depends override")
 
 
 async def get_current_user_id(

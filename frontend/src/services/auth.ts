@@ -1,26 +1,67 @@
 import { apiClient } from "./client";
+import type {
+  LoginRequest,
+  LoginResponse,
+  RegisterRequest,
+} from "../types/api";
 
-interface LoginRequest {
+// ── Internal types (not exported to API types) ─────────
+
+interface SendCodeParams {
   phone: string;
-  password: string;
+  type: "register" | "reset_password" | "login";
 }
 
-interface LoginResponse {
-  token: string;
-  user: {
-    id: string;
-    name: string;
-    avatar?: string;
-    bio?: string;
-  };
+interface RefreshTokenParams {
+  refresh_token: string;
 }
 
-export async function loginAPI(data: LoginRequest): Promise<LoginResponse> {
-  const res = await apiClient.post<LoginResponse>("/auth/login", data);
-  return res.data;
+interface RefreshTokenResponse {
+  access_token: string;
 }
 
-export async function getCurrentUser() {
-  const res = await apiClient.get("/auth/me");
-  return res.data;
+// ── API functions ──────────────────────────────────────
+
+/**
+ * User registration with phone, password, verification code, and nickname.
+ */
+export async function registerAPI(
+  params: RegisterRequest
+): Promise<LoginResponse> {
+  const res = await apiClient.post("/auth/register", params);
+  return res as unknown as LoginResponse;
+}
+
+/**
+ * Login with phone and password.
+ */
+export async function loginAPI(
+  params: LoginRequest
+): Promise<LoginResponse> {
+  const res = await apiClient.post("/auth/login", params);
+  return res as unknown as LoginResponse;
+}
+
+/**
+ * Refresh access token using refresh token.
+ */
+export async function refreshTokenAPI(
+  params: RefreshTokenParams
+): Promise<RefreshTokenResponse> {
+  const res = await apiClient.post("/auth/refresh", params);
+  return res as unknown as RefreshTokenResponse;
+}
+
+/**
+ * Logout — invalidate the current session.
+ */
+export async function logoutAPI(): Promise<void> {
+  await apiClient.post("/auth/logout");
+}
+
+/**
+ * Send verification code to phone.
+ */
+export async function sendCodeAPI(params: SendCodeParams): Promise<void> {
+  await apiClient.post("/auth/send-code", params);
 }

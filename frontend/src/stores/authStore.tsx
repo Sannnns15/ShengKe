@@ -1,119 +1,189 @@
+import { create } from "zustand";
 import {
-  createContext,
-  useContext,
-  useEffect,
-  useState,
-  useCallback,
-  type ReactNode,
-} from "react";
-import { setToken, getToken, removeToken } from "../utils/storage";
-import { apiClient } from "../services/client";
+  setAccessToken,
+  getAccessToken,
+  removeAccessToken,
+  setRefreshToken,
+  getRefreshToken,
+  removeRefreshToken,
+  setStoredUser,
+  getStoredUser,
+  removeStoredUser,
+  clearAllAuth,
+} from "../utils/storage";
+import {
+  loginAPI,
+  registerAPI,
+  logoutAPI,
+  refreshTokenAPI,
+} from "../services/auth";
 
 // ── Types ──────────────────────────────────────────────
 
 export interface User {
   id: string;
-  name: string;
-  avatar?: string;
-  bio?: string;
+  phone: string;
+  nickname: string;
+  avatar_url: string | null;
 }
 
 interface AuthState {
   user: User | null;
-  token: string | null;
+  accessToken: string | null;
+  refreshToken: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+
   login: (phone: string, password: string) => Promise<void>;
-  logout: () => void;
-  setUser: (user: User) => void;
+  register: (
+    phone: string,
+    password: string,
+    code: string,
+    nickname: string
+  ) => Promise<void>;
+  logout: () => Promise<void>;
+  refreshAccessToken: () => Promise<void>;
+  loadStoredAuth: () => Promise<void>;
 }
 
-// ── Context ────────────────────────────────────────────
+// ── Store ──────────────────────────────────────────────
 
-const AuthContext = createContext<AuthState | null>(null);
+export const useAuthStore = create<AuthState>((set, get) => ({
+  user: null,
+  accessToken: null,
+  refreshToken: null,
+  isAuthenticated: false,
+  isLoading: true,
+
+  login: async (phone: string, password: string) => {
+    const res = await loginAPI({ phone, password });
+
+    // Login response: { access_token, refresh_token, expires_in, token_type }
+    // We need a separate /users/me call to get user info after login
+    const token = res.access_token;
+    const rToken = res.refresh_token;
+
+    await Promise.all([
+      setAccessToken(token),
+      setRefreshToken(rToken),
+    ]);
+
+    set({
+      accessToken: token,
+      refreshToken: rToken,
+      isAuthenticated: true,
+    });
+  },
+
+  register: async (
+    phone: string,
+    password: string,
+    code: string,
+    nickname: string
+  ) => {
+    const res = await registerAPI({ phone, password, code, nickname });
+
+    // Register response: { user, access_token, refresh_token, expires_in }
+    const token = res.access_token;
+    const rToken = res.refresh_token;
+    const userData: User = {
+      id: res.user.id,
+      phone: res.user.phone,
+      nickname: res.user.nickname,
+      avatar_url: res.user.avatar_url,
+    };
+
+    await Promise.all([
+      setAccessToken(token),
+      setRefreshToken(rToken),
+      setStoredUser(JSON.stringify(userData)),
+    ]);
+
+    set({
+      accessToken: token,
+      refreshToken: rToken,
+      user: userData,
+      isAuthenticated: true,
+    });
+  },
+
+  logout: async () => {
+    try {
+      await logoutAPI();
+    } catch {
+      // Ignore logout API errors — clear locally regardless
+    }
+    await clearAllAuth();
+    set({
+      user: null,
+      accessToken: null,
+      refreshToken: null,
+      isAuthenticated: false,
+    });
+  },
+
+  refreshAccessToken: async () => {
+    const currentRefreshToken = get().refreshToken;
+    if (!currentRefreshToken) return;
+
+    const res = await refreshTokenAPI({ refresh_token: currentRefreshToken });
+    const newToken = res.access_token;
+
+    await setAccessToken(newToken);
+    set({ accessToken: newToken });
+  },
+
+  loadStoredAuth: async () => {
+    try {
+      const [at, rt, userRaw] = await Promise.all([
+        getAccessToken(),
+        getRefreshToken(),
+        getStoredUser(),
+      ]);
+
+      if (at) {
+        let user: User | null = null;
+        try {
+          if (userRaw) user = JSON.parse(userRaw);
+        } catch {
+          // stored user data is malformed — ignore
+        }
+
+        set({
+          accessToken: at,
+          refreshToken: rt || null,
+          user,
+          isAuthenticated: true,
+          isLoading: false,
+        });
+      } else {
+        set({ isLoading: false });
+      }
+    } catch {
+      set({ isLoading: false });
+    }
+  },
+}));
+
+// ── Legacy AuthProvider (kept for existing _layout.tsx compatibility) ──
+
+import { useEffect, type ReactNode } from "react";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [token, setTokenState] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const { loadStoredAuth } = useAuthStore();
 
-  // 启动时从 SecureStore 恢复 token
+  // Hydrate from SecureStore on mount
   useEffect(() => {
-    (async () => {
-      try {
-        const storedToken = await getToken();
-        if (storedToken) {
-          // 将 token 写入 axios 默认头
-          apiClient.defaults.headers.common["Authorization"] =
-            `Bearer ${storedToken}`;
-          setTokenState(storedToken);
-          // TODO: 用 token 获取用户信息
-        }
-      } catch (err) {
-        console.error("Failed to restore auth:", err);
-      } finally {
-        setIsLoading(false);
-      }
-    })();
-  }, []);
+    loadStoredAuth();
+  }, [loadStoredAuth]);
 
-  const login = useCallback(async (phone: string, password: string) => {
-    // TODO: 替换为真实 API 调用
-    const { token: newToken, user: newUser } = await mockLogin(phone, password);
-
-    await setToken(newToken);
-    apiClient.defaults.headers.common["Authorization"] = `Bearer ${newToken}`;
-    setTokenState(newToken);
-    setUser(newUser);
-  }, []);
-
-  const logout = useCallback(async () => {
-    await removeToken();
-    delete apiClient.defaults.headers.common["Authorization"];
-    setTokenState(null);
-    setUser(null);
-  }, []);
-
-  return (
-    <AuthContext.Provider
-      value={{
-        user,
-        token,
-        isAuthenticated: !!token && !!user,
-        isLoading,
-        login,
-        logout,
-        setUser,
-      }}
-    >
-      {children}
-    </AuthContext.Provider>
-  );
+  return <>{children}</>;
 }
 
-export function useAuth(): AuthState {
-  const ctx = useContext(AuthContext);
-  if (!ctx) {
-    throw new Error("useAuth must be used within <AuthProvider>");
-  }
-  return ctx;
-}
-
-// ── Mock login ─────────────────────────────────────────
-
-async function mockLogin(
-  _phone: string,
-  _password: string
-): Promise<{ token: string; user: User }> {
-  // 模拟网络延迟
-  await new Promise((r) => setTimeout(r, 800));
-  return {
-    token: "mock-jwt-token-" + Date.now(),
-    user: {
-      id: "u_001",
-      name: "Gatsby",
-      avatar: undefined,
-      bio: "记录生活的每一刻",
-    },
-  };
+/**
+ * Legacy hook — kept for existing consumers.
+ * New code should use useAuthStore directly or imports from hooks/useAuth.ts.
+ */
+export function useAuth() {
+  return useAuthStore();
 }
