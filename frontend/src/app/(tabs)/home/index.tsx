@@ -9,15 +9,13 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useInfiniteQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { getMomentFeed } from "../../../services/moments";
+import { useMomentFeed } from "../../../hooks/useMomentFeed";
 import { formatRelativeTime } from "../../../utils/format";
-import { getMoodLabel } from "../../../constants/emotions";
+
 import { Colors, Spacing, FontSize, FontWeight, Radius } from "../../../constants/theme";
-import { PAGE_SIZE } from "../../../constants/config";
-import type { MomentFeedItem, PaginatedData } from "../../../types/api";
+import type { MomentFeedItem } from "../../../types/api";
 
 function getPrivacyLabel(level: number): string {
   switch (level) {
@@ -152,19 +150,7 @@ export default function HomeFeedScreen() {
     isError,
     refetch,
     isRefetching,
-  } = useInfiniteQuery<PaginatedData<MomentFeedItem>>({
-    queryKey: ["momentFeed"],
-    queryFn: ({ pageParam }) =>
-      getMomentFeed(pageParam as number, PAGE_SIZE),
-    initialPageParam: 1,
-    getNextPageParam: (lastPage) => {
-      const { page, page_size, total } = lastPage.meta;
-      if (page * page_size < total) {
-        return page + 1;
-      }
-      return undefined;
-    },
-  });
+  } = useMomentFeed();
 
   // Flatten paginated results
   const moments: MomentFeedItem[] =

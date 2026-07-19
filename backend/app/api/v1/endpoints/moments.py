@@ -3,6 +3,7 @@ from __future__ import annotations
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
+from sqlalchemy import update as sa_update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_db, get_current_user_id
@@ -24,6 +25,7 @@ from app.services.moment import (
     toggle_archive,
     update_privacy,
 )
+from app.models.media import Media
 
 router = APIRouter()
 
@@ -35,9 +37,18 @@ async def create_moment_endpoint(
     user_id: UUID = Depends(get_current_user_id),
 ):
     """Create a new Moment."""
-    media_ids = body.media_ids
-    data = body.model_dump(exclude={"media_ids", "tag_names"})
-    moment = await create_moment(db, user_id, data, media_ids)
+    data = body.model_dump(exclude={"media_ids"})
+    moment = await create_moment(db, user_id, data)
+
+    # Associate media with moment
+    if body.media_ids:
+        stmt = (
+            sa_update(Media)
+            .where(Media.id.in_(body.media_ids), Media.user_id == user_id)
+            .values(moment_id=moment.id)
+        )
+        await db.execute(stmt)
+        await db.commit()
 
     # TODO: trigger AI tag extraction asynchronously
 

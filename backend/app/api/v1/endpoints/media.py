@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import os
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, File, Query, UploadFile
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -21,8 +22,62 @@ from app.services.media import (
     delete_media,
 )
 from app.models.media import Media
+from app.utils import uuid_v7
 
 router = APIRouter()
+
+
+@router.post("/upload", response_model=Result[UploadUrlResponse])
+async def upload_file(
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+    user_id: UUID = Depends(get_current_user_id),
+):
+    """Direct file upload for development.
+
+    Saves file to local uploads/ directory, creates a Media record
+    with status=1 (uploaded), and returns the URL + object_key.
+    """
+    # Determine file extension
+    filename = file.filename or "upload"
+    ext = os.path.splitext(filename)[1] or ""
+    object_key = f"{uuid_v7().hex}{ext}"
+
+    # Ensure uploads directory exists
+    upload_dir = os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "uploads")
+    os.makedirs(upload_dir, exist_ok=True)
+
+    # Save file
+    file_path = os.path.join(upload_dir, object_key)
+    content = await file.read()
+    with open(file_path, "wb") as f:
+        f.write(content)
+
+    # Create Media record
+    media_type = "image"
+    if file.content_type:
+        if file.content_type.startswith("video/"):
+            media_type = "video"
+        elif file.content_type.startswith("audio/"):
+            media_type = "audio"
+
+    media = Media(
+        user_id=user_id,
+        object_key=object_key,
+        mime_type=file.content_type,
+        file_size=len(content),
+        media_type=media_type,
+        status=1,  # uploaded
+    )
+    db.add(media)
+    await db.commit()
+    await db.refresh(media)
+
+    return Result(
+        code=0,
+        message="success",
+        data=UploadUrlResponse(url=f"/uploads/{object_key}", object_key=object_key),
+    )
 
 
 @router.post("/upload-url", response_model=Result[UploadUrlResponse])

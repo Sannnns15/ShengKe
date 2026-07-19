@@ -22,7 +22,7 @@ import {
 } from "../../../services/comments";
 import { toggleLike, getLikeStatus } from "../../../services/social";
 import { formatRelativeTime, formatCount } from "../../../utils/format";
-import { Colors, Spacing, FontSize, Radius, Shadows, LineHeight } from "../../../constants/theme";
+import { Colors, Spacing, FontSize, FontWeight, Radius, Shadows, LineHeight } from "../../../constants/theme";
 import type { MomentDetail } from "../../../types/api";
 
 // ── Helpers ──────────────────────────────────────────────
@@ -441,7 +441,7 @@ const styles = StyleSheet.create({
   backButtonInlineText: {
     color: Colors.textInverse,
     fontSize: FontSize.small,
-    fontWeight: "600",
+    fontWeight: FontWeight.semibold,
   },
 
   // ── Top Bar ──
@@ -463,7 +463,7 @@ const styles = StyleSheet.create({
   },
   topBarTitle: {
     fontSize: FontSize.heading3,
-    fontWeight: "600",
+    fontWeight: FontWeight.semibold,
     color: Colors.textPrimary,
   },
 
@@ -483,7 +483,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: FontSize.heading1,
-    fontWeight: "700",
+    fontWeight: FontWeight.bold,
     color: Colors.textPrimary,
     marginBottom: Spacing.sm,
     lineHeight: FontSize.heading1 * LineHeight.tight,
@@ -538,7 +538,7 @@ const styles = StyleSheet.create({
   },
   aiSectionTitle: {
     fontSize: FontSize.small,
-    fontWeight: "600",
+    fontWeight: FontWeight.semibold,
     color: Colors.textAccent,
   },
   aiSummaryText: {
@@ -572,7 +572,7 @@ const styles = StyleSheet.create({
   },
   emotionText: {
     fontSize: FontSize.body,
-    fontWeight: "500",
+    fontWeight: FontWeight.medium,
     color: Colors.textPrimary,
   },
 
@@ -612,7 +612,7 @@ const styles = StyleSheet.create({
   likeButtonText: {
     fontSize: FontSize.body,
     color: Colors.textSecondary,
-    fontWeight: "600",
+    fontWeight: FontWeight.semibold,
   },
   likeButtonTextActive: {
     color: Colors.error,
@@ -628,7 +628,7 @@ const styles = StyleSheet.create({
   // ── Comments ──
   commentsHeader: {
     fontSize: FontSize.heading3,
-    fontWeight: "700",
+    fontWeight: FontWeight.bold,
     color: Colors.textPrimary,
     marginBottom: Spacing.md,
   },
@@ -660,7 +660,7 @@ const styles = StyleSheet.create({
   },
   commentAvatarText: {
     fontSize: FontSize.small,
-    fontWeight: "700",
+    fontWeight: FontWeight.bold,
     color: Colors.primary,
   },
   commentBody: {
@@ -674,7 +674,7 @@ const styles = StyleSheet.create({
   },
   commentNickname: {
     fontSize: FontSize.small,
-    fontWeight: "600",
+    fontWeight: FontWeight.semibold,
     color: Colors.textPrimary,
   },
   commentTime: {

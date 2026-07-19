@@ -82,8 +82,8 @@ export interface CreateMomentParams {
   weather?: string;
   location_name?: string;
   privacy_level?: number;
-  media_urls?: string[];
-  custom_tags?: string[];
+  media_ids?: string[];
+  tag_names?: string[];
 }
 
 // ══ User Types ════════════════════════════════════════════

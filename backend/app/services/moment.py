@@ -35,12 +35,10 @@ async def create_moment(
     db: AsyncSession,
     user_id: UUID,
     data: dict,
-    media_ids: list[UUID] | None = None,
 ) -> Moment:
     """Create a new Moment.
 
-    Associates media and triggers AI tag extraction (AI step skipped for now,
-    only basic creation is performed).
+    Handles tag_names from data dict to create MomentTag associations.
     """
     moment = Moment(
         user_id=user_id,

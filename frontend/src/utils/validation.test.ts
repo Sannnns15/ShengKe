@@ -26,14 +26,14 @@ describe('validatePassword', () => {
     expect(validatePassword('')).not.toBeNull();
   });
 
-  it('should accept valid password (≥6 chars)', () => {
-    expect(validatePassword('pass123')).toBeNull();
-    expect(validatePassword('abcdef')).toBeNull();
+  it('should accept valid password (≥8 chars)', () => {
+    expect(validatePassword('pass1234')).toBeNull();
+    expect(validatePassword('abcdefgh')).toBeNull();
     expect(validatePassword('password123')).toBeNull();
   });
 
-  it('should reject short password (<6 chars)', () => {
-    expect(validatePassword('123')).not.toBeNull();
-    expect(validatePassword('abcde')).not.toBeNull();
+  it('should reject short password (<8 chars)', () => {
+    expect(validatePassword('1234567')).not.toBeNull();
+    expect(validatePassword('abcdefg')).not.toBeNull();
   });
 });

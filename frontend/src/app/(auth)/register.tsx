@@ -14,8 +14,9 @@ import {
 import { router } from "expo-router";
 import { useAuth } from "../../hooks/useAuth";
 import { sendCodeAPI } from "../../services/auth";
+import { extractErrorMessage } from "../../services/client";
 import { validatePhone, validatePassword } from "../../utils/validation";
-import { Colors, Spacing, FontSize, Radius } from "../../constants/theme";
+import { Colors, Spacing, FontSize, FontWeight, Radius } from "../../constants/theme";
 
 export default function RegisterScreen() {
   const [phone, setPhone] = useState("");
@@ -61,9 +62,7 @@ export default function RegisterScreen() {
       setCountdown(60);
       Alert.alert("提示", "验证码已发送");
     } catch (error: any) {
-      const message =
-        error?.response?.data?.message || error?.message || "发送验证码失败";
-      Alert.alert("发送失败", message);
+      Alert.alert("发送失败", extractErrorMessage(error));
     } finally {
       setCodeSending(false);
     }
@@ -108,9 +107,7 @@ export default function RegisterScreen() {
       await register(phone.trim(), password, code.trim(), nickname.trim());
       router.replace("/(tabs)/home");
     } catch (error: any) {
-      const message =
-        error?.response?.data?.message || error?.message || "注册失败";
-      Alert.alert("注册失败", message);
+      Alert.alert("注册失败", extractErrorMessage(error));
     } finally {
       setLoading(false);
     }
@@ -194,7 +191,7 @@ export default function RegisterScreen() {
             {/* Password */}
             <TextInput
               style={styles.input}
-              placeholder="密码（至少6位）"
+              placeholder="密码（至少8位）"
               placeholderTextColor={Colors.textTertiary}
               secureTextEntry
               value={password}
@@ -259,7 +256,7 @@ const styles = StyleSheet.create({
   },
   logoText: {
     fontSize: FontSize.hero,
-    fontWeight: "800",
+    fontWeight: FontWeight.bold,
     textAlign: "center",
     color: Colors.textPrimary,
     letterSpacing: 1,
@@ -310,7 +307,7 @@ const styles = StyleSheet.create({
   codeButtonText: {
     color: Colors.textAccent,
     fontSize: FontSize.small,
-    fontWeight: "600",
+    fontWeight: FontWeight.semibold,
   },
   codeButtonTextDisabled: {
     color: Colors.textTertiary,
@@ -330,7 +327,7 @@ const styles = StyleSheet.create({
   buttonText: {
     color: Colors.textInverse,
     fontSize: FontSize.bodyLarge,
-    fontWeight: "600",
+    fontWeight: FontWeight.semibold,
   },
   footer: {
     flexDirection: "row",
@@ -346,6 +343,6 @@ const styles = StyleSheet.create({
   link: {
     color: Colors.textAccent,
     fontSize: FontSize.small,
-    fontWeight: "500",
+    fontWeight: FontWeight.medium,
   },
 });

@@ -10,6 +10,7 @@ export function validatePhone(phone: string): string | null {
 
 export function validatePassword(password: string): string | null {
   if (!password) return "请输入密码";
-  if (password.length < 6) return "密码至少 6 位";
+  if (password.length < 8) return "密码至少 8 位";
+  if (password.length > 128) return "密码不能超过 128 位";
   return null;
 }

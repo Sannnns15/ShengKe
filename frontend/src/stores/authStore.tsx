@@ -17,6 +17,8 @@ import {
   logoutAPI,
   refreshTokenAPI,
 } from "../services/auth";
+import { getMyProfile } from "../services/users";
+import { setOnForceLogout } from "../services/client";
 
 // ── Types ──────────────────────────────────────────────
 
@@ -46,133 +48,168 @@ interface AuthState {
   loadStoredAuth: () => Promise<void>;
 }
 
+// ── Force-logout callback (wired on store init) ────────
+
+let _forceLogoutInitialized = false;
+
+function ensureForceLogout(set: (fn: (state: AuthState) => Partial<AuthState>) => void) {
+  if (!_forceLogoutInitialized) {
+    _forceLogoutInitialized = true;
+    setOnForceLogout(() => {
+      clearAllAuth().catch(() => {});
+      set(() => ({
+        user: null,
+        accessToken: null,
+        refreshToken: null,
+        isAuthenticated: false,
+      }));
+    });
+  }
+}
+
 // ── Store ──────────────────────────────────────────────
 
-export const useAuthStore = create<AuthState>((set, get) => ({
-  user: null,
-  accessToken: null,
-  refreshToken: null,
-  isAuthenticated: false,
-  isLoading: true,
+export const useAuthStore = create<AuthState>((set, get) => {
+  ensureForceLogout(set);
 
-  login: async (phone: string, password: string) => {
-    const res = await loginAPI({ phone, password });
+  return {
+    user: null,
+    accessToken: null,
+    refreshToken: null,
+    isAuthenticated: false,
+    isLoading: true,
 
-    // Login response: { access_token, refresh_token, expires_in, token_type }
-    const token = res.access_token;
-    const rToken = res.refresh_token;
+    login: async (phone: string, password: string) => {
+      const res = await loginAPI({ phone, password });
 
-    // Set tokens first so subsequent API calls are authenticated
-    await Promise.all([
-      setAccessToken(token),
-      setRefreshToken(rToken),
-    ]);
+      const token = res.access_token;
+      const rToken = res.refresh_token;
 
-    // After login we set auth state optimistically; user info will be
-    // fetched by the calling component via /users/me if needed
-    set({
-      accessToken: token,
-      refreshToken: rToken,
-      isAuthenticated: true,
-    });
-  },
-
-  register: async (
-    phone: string,
-    password: string,
-    code: string,
-    nickname: string
-  ) => {
-    const res = await registerAPI({ phone, password, code, nickname });
-
-    // Register response: { user, access_token, refresh_token, expires_in }
-    // The type is RegisterResponse which has `user` - but loginAPI returns
-    // LoginResponse (tokens only). For register, we cast appropriately.
-    const registerRes = res as unknown as {
-      user: { id: string; phone: string; nickname: string; avatar_url: string | null };
-      access_token: string;
-      refresh_token: string;
-    };
-    const token = registerRes.access_token;
-    const rToken = registerRes.refresh_token;
-    const userData: User = {
-      id: registerRes.user.id,
-      phone: registerRes.user.phone,
-      nickname: registerRes.user.nickname,
-      avatar_url: registerRes.user.avatar_url,
-    };
-
-    await Promise.all([
-      setAccessToken(token),
-      setRefreshToken(rToken),
-      setStoredUser(JSON.stringify(userData)),
-    ]);
-
-    set({
-      accessToken: token,
-      refreshToken: rToken,
-      user: userData,
-      isAuthenticated: true,
-    });
-  },
-
-  logout: async () => {
-    try {
-      await logoutAPI();
-    } catch {
-      // Ignore logout API errors — clear locally regardless
-    }
-    await clearAllAuth();
-    set({
-      user: null,
-      accessToken: null,
-      refreshToken: null,
-      isAuthenticated: false,
-    });
-  },
-
-  refreshAccessToken: async () => {
-    const currentRefreshToken = get().refreshToken;
-    if (!currentRefreshToken) return;
-
-    const res = await refreshTokenAPI({ refresh_token: currentRefreshToken });
-    const newToken = res.access_token;
-
-    await setAccessToken(newToken);
-    set({ accessToken: newToken });
-  },
-
-  loadStoredAuth: async () => {
-    try {
-      const [at, rt, userRaw] = await Promise.all([
-        getAccessToken(),
-        getRefreshToken(),
-        getStoredUser(),
+      // Save tokens to secure storage first
+      await Promise.all([
+        setAccessToken(token),
+        setRefreshToken(rToken),
       ]);
 
-      if (at) {
-        let user: User | null = null;
-        try {
-          if (userRaw) user = JSON.parse(userRaw);
-        } catch {
-          // stored user data is malformed — ignore
-        }
+      // Fetch user profile now that we have a valid token
+      let userData: User | null = null;
+      try {
+        const profile = await getMyProfile();
+        userData = {
+          id: profile.id,
+          phone: profile.phone,
+          nickname: profile.nickname,
+          avatar_url: profile.avatar_url,
+        };
+        await setStoredUser(JSON.stringify(userData));
+      } catch {
+        // Profile fetch failed — still log in with tokens only
+        // User can be fetched lazily later
+      }
 
-        set({
-          accessToken: at,
-          refreshToken: rt || null,
-          user,
-          isAuthenticated: true,
-          isLoading: false,
-        });
-      } else {
+      set({
+        accessToken: token,
+        refreshToken: rToken,
+        user: userData,
+        isAuthenticated: true,
+      });
+    },
+
+    register: async (
+      phone: string,
+      password: string,
+      code: string,
+      nickname: string
+    ) => {
+      const res = await registerAPI({ phone, password, code, nickname });
+
+      // Register response includes user info + tokens
+      const registerRes = res as unknown as {
+        user: { id: string; phone: string; nickname: string; avatar_url: string | null };
+        access_token: string;
+        refresh_token: string;
+      };
+      const token = registerRes.access_token;
+      const rToken = registerRes.refresh_token;
+      const userData: User = {
+        id: registerRes.user.id,
+        phone: registerRes.user.phone,
+        nickname: registerRes.user.nickname,
+        avatar_url: registerRes.user.avatar_url,
+      };
+
+      await Promise.all([
+        setAccessToken(token),
+        setRefreshToken(rToken),
+        setStoredUser(JSON.stringify(userData)),
+      ]);
+
+      set({
+        accessToken: token,
+        refreshToken: rToken,
+        user: userData,
+        isAuthenticated: true,
+      });
+    },
+
+    logout: async () => {
+      try {
+        await logoutAPI();
+      } catch {
+        // Ignore logout API errors — clear locally regardless
+      }
+      await clearAllAuth();
+      set({
+        user: null,
+        accessToken: null,
+        refreshToken: null,
+        isAuthenticated: false,
+      });
+    },
+
+    refreshAccessToken: async () => {
+      const currentRefreshToken = get().refreshToken;
+      if (!currentRefreshToken) return;
+
+      const res = await refreshTokenAPI({ refresh_token: currentRefreshToken });
+      const newToken = res.access_token;
+
+      await setAccessToken(newToken);
+      set({ accessToken: newToken });
+    },
+
+    loadStoredAuth: async () => {
+      try {
+        const [at, rt, userRaw] = await Promise.all([
+          getAccessToken(),
+          getRefreshToken(),
+          getStoredUser(),
+        ]);
+
+        if (at) {
+          let user: User | null = null;
+          try {
+            if (userRaw) user = JSON.parse(userRaw);
+          } catch {
+            // stored user data is malformed — ignore
+          }
+
+          set({
+            accessToken: at,
+            refreshToken: rt || null,
+            user,
+            isAuthenticated: true,
+            isLoading: false,
+          });
+        } else {
+          set({ isLoading: false });
+        }
+      } catch {
         set({ isLoading: false });
       }
-    } catch {
-      set({ isLoading: false });
-    }
-  },
-}));
+    },
+  };
+});
 
 // ── Legacy AuthProvider (kept for existing _layout.tsx compatibility) ──
 

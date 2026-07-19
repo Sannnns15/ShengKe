@@ -12,6 +12,15 @@ import {
 } from "../utils/storage";
 import type { ApiResponse } from "../types/api";
 
+// ── Global auth logout hook (set by authStore) ──────────
+// Allows the HTTP interceptor to trigger a store-wide logout
+// when token refresh fails (e.g. refresh token expired).
+let _onForceLogout: (() => void) | null = null;
+
+export function setOnForceLogout(cb: () => void) {
+  _onForceLogout = cb;
+}
+
 let refreshPromise: Promise<string | null> | null = null;
 
 export const apiClient: AxiosInstance = axios.create({
@@ -40,7 +49,7 @@ apiClient.interceptors.request.use(
 // 2) Auto-refresh on 401 and retry the original request
 apiClient.interceptors.response.use(
   (response) => {
-    // Unwrap ApiResponse<unknown> envelope, return the inner `data` field directly.
+    // Unwrap ApiResponse<unknown> envelope: return the inner `data` field directly.
     // After this interceptor, apiClient.post<T>() effectively returns T (the inner payload).
     return response.data?.data ?? response.data;
   },
@@ -65,8 +74,9 @@ apiClient.interceptors.response.use(
 
     const newToken = await refreshPromise;
     if (!newToken) {
-      // Refresh failed — clear auth and reject
+      // Refresh failed (token expired or revoked) — force logout
       await clearAllAuth();
+      _onForceLogout?.();
       return Promise.reject(error);
     }
 
@@ -97,4 +107,21 @@ async function doRefreshToken(): Promise<string | null> {
   } catch {
     return null;
   }
+}
+
+/**
+ * Extract a human-readable error message from an API error response.
+ * Handles both ApiResponse envelope and raw errors.
+ */
+export function extractErrorMessage(error: unknown): string {
+  if (error && typeof error === "object") {
+    const axiosErr = error as { response?: { data?: { message?: string; code?: number } }; message?: string };
+    if (axiosErr.response?.data?.message) {
+      return axiosErr.response.data.message;
+    }
+    if (axiosErr.message) {
+      return axiosErr.message;
+    }
+  }
+  return "操作失败，请稍后重试";
 }

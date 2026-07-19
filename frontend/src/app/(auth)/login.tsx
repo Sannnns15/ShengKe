@@ -13,7 +13,8 @@ import {
 import { router } from "expo-router";
 import { useAuth } from "../../hooks/useAuth";
 import { validatePhone, validatePassword } from "../../utils/validation";
-import { Colors, Spacing, FontSize, Radius, Shadows } from "../../constants/theme";
+import { extractErrorMessage } from "../../services/client";
+import { Colors, Spacing, FontSize, FontWeight, Radius, Shadows } from "../../constants/theme";
 
 export default function LoginScreen() {
   const [phone, setPhone] = useState("");
@@ -41,11 +42,7 @@ export default function LoginScreen() {
       await login(phone.trim(), password);
       router.replace("/(tabs)/home");
     } catch (error: any) {
-      const message =
-        error?.response?.data?.message ||
-        error?.message ||
-        "登录失败，请检查手机号和密码";
-      Alert.alert("登录失败", message);
+      Alert.alert("登录失败", extractErrorMessage(error));
     } finally {
       setLoading(false);
     }
@@ -129,7 +126,7 @@ const styles = StyleSheet.create({
   },
   logoText: {
     fontSize: FontSize.hero,
-    fontWeight: "800",
+    fontWeight: FontWeight.bold,
     textAlign: "center",
     color: Colors.textPrimary,
     letterSpacing: 1,
@@ -169,7 +166,7 @@ const styles = StyleSheet.create({
   buttonText: {
     color: Colors.textInverse,
     fontSize: FontSize.bodyLarge,
-    fontWeight: "600",
+    fontWeight: FontWeight.semibold,
   },
   footer: {
     flexDirection: "row",
@@ -180,6 +177,6 @@ const styles = StyleSheet.create({
   link: {
     color: Colors.textAccent,
     fontSize: FontSize.small,
-    fontWeight: "500",
+    fontWeight: FontWeight.medium,
   },
 });

@@ -124,16 +124,19 @@ export default function CreateScreen() {
     mutationFn: async (params: CreateMomentParams) => {
       // Upload images first if any
       if (selectedImages.length > 0) {
-        const uploadedUrls: string[] = [];
+        const mediaIds: string[] = [];
         for (const uri of selectedImages) {
+          // Upload returns { url, object_key } — for now pass the URI
+          // as a placeholder. Once backend provides media_id in the
+          // response, use that instead.
           const result = await uploadMedia(uri);
-          uploadedUrls.push(result.url);
+          mediaIds.push(result.url);
         }
-        params.media_urls = uploadedUrls;
+        params.media_ids = mediaIds;
       }
       // Custom tags
       if (tags.length > 0) {
-        params.custom_tags = tags;
+        params.tag_names = tags;
       }
       // Weather & location
       if (weather.trim()) params.weather = weather.trim();

@@ -12,7 +12,7 @@ import { useFocusEffect, router } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
 import { getMyProfile } from "../../../services/users";
 import { useAuthStore } from "../../../stores/authStore";
-import { Colors, Spacing, FontSize, Radius, Shadows } from "../../../constants/theme";
+import { Colors, Spacing, FontSize, FontWeight, Radius, Shadows } from "../../../constants/theme";
 import type { UserProfile } from "../../../types/api";
 
 function getInitial(name: string): string {
@@ -169,12 +169,12 @@ const styles = StyleSheet.create({
   },
   avatarText: {
     fontSize: 32,
-    fontWeight: "700",
+    fontWeight: FontWeight.bold,
     color: Colors.primary,
   },
   name: {
     fontSize: FontSize.heading1,
-    fontWeight: "700",
+    fontWeight: FontWeight.bold,
     color: Colors.textPrimary,
   },
   bio: {
@@ -192,7 +192,7 @@ const styles = StyleSheet.create({
   },
   statNumber: {
     fontSize: FontSize.heading3,
-    fontWeight: "700",
+    fontWeight: FontWeight.bold,
     color: Colors.textPrimary,
   },
   statLabel: {
@@ -234,7 +234,7 @@ const styles = StyleSheet.create({
   loginButtonText: {
     fontSize: FontSize.body,
     color: Colors.textInverse,
-    fontWeight: "600",
+    fontWeight: FontWeight.semibold,
   },
   errorText: {
     fontSize: FontSize.body,
@@ -244,6 +244,6 @@ const styles = StyleSheet.create({
   retryText: {
     fontSize: FontSize.body,
     color: Colors.textAccent,
-    fontWeight: "600",
+    fontWeight: FontWeight.semibold,
   },
 });

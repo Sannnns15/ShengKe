@@ -25,13 +25,13 @@ from sqlalchemy.ext.asyncio import (
 
 os.environ.setdefault(
     "DATABASE_URL",
-    "postgresql+asyncpg://shengke:shengke_secret@localhost:5432/shengke_dev",
+    "postgresql+asyncpg://shengke:shengke_secret@localhost:5432/shengke_test",
 )
 os.environ.setdefault(
     "DATABASE_SYNC_URL",
-    "postgresql://shengke:shengke_secret@localhost:5432/shengke_dev",
+    "postgresql://shengke:shengke_secret@localhost:5432/shengke_test",
 )
-os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
+os.environ.setdefault("REDIS_URL", "redis://localhost:6380/0")
 os.environ.setdefault("JWT_SECRET", "test-jwt-secret-not-for-production")
 
 # ── Now it is safe to import the app ───────────────────────────────────
@@ -42,7 +42,7 @@ from app.main import app  # noqa: E402
 settings = get_settings()
 
 # Sanity check: ensure env vars were picked up
-assert "shengke_dev" in settings.database_url, (
+assert "shengke_test" in settings.database_url, (
     f"DATABASE_URL not resolved correctly: {settings.database_url}"
 )
 
