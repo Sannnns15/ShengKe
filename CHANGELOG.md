@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] — 2026-07-20
+
+### Added
+
+#### Backend — Social Features
+- Comment model + service + API: create comment (with reply support), paginated list by moment, soft-delete
+- Like model + service + API: toggle like/unlike, get status, count, auto-update parent entity counts
+- Follow model + service + API: follow/unfollow (with re-follow support), paginated followers/following lists, self-follow prevention
+- All relationships wired into `User`, `Moment`, and `Comment` models
+- Alembic env.py imports new models for autogenerate detection
+
+#### Frontend — Moment UI
+- Moment Feed with `useInfiniteQuery` pagination, pull-to-refresh, infinite scroll
+- MomentCard component: content truncation (80 chars), mood, privacy badge, AI tags, stats
+- Moment detail page: full content, AI summary/tags, like button, mock comments section
+- Create Moment page: title, multi-line content with char count, 6-emoji mood picker, privacy level selector, form validation
+- Type definitions aligned with backend (`MomentFeedItem`, `MomentDetail`, `CreateMomentParams`)
+
+### Changed
+- Front-end TypeScript: zero errors (`tsc --noEmit` ✓)
+- Backend: all module imports verified (`python -c` import test ✓)
+
 ## [0.2.0] — 2026-07-19
 
 ### Added

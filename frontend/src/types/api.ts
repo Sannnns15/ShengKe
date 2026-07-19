@@ -84,6 +84,22 @@ export interface CreateMomentParams {
   privacy_level?: number;
 }
 
+// ══ User Types ════════════════════════════════════════════
+
+export interface UserProfile {
+  id: string;
+  phone: string;
+  nickname: string;
+  avatar_url: string | null;
+  bio?: string;
+  gender?: number;
+  birthday?: string;
+  moment_count: number;
+  follower_count: number;
+  following_count: number;
+  created_at: string;
+}
+
 export interface PaginationMeta {
   page: number;
   page_size: number;
