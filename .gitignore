@@ -7,3 +7,4 @@ __pycache__/
 backend/.coverage
 node_modules/
 venv/
+uploads/
