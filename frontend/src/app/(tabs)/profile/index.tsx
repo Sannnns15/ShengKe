@@ -19,10 +19,10 @@ export default function ProfileScreen() {
           <Text style={styles.avatarText}>G</Text>
         </View>
         <Text style={styles.name}>
-          {isAuthenticated && user ? user.name : "未登录"}
+          {isAuthenticated && user ? user.nickname : "未登录"}
         </Text>
         <Text style={styles.bio}>
-          {isAuthenticated && user ? user.bio : "请先登录"}
+          {isAuthenticated && user ? (user as any).bio || "生刻用户" : "请先登录"}
         </Text>
 
         <View style={styles.stats}>

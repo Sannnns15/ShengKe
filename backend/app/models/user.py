@@ -1,12 +1,8 @@
-import uuid
-from datetime import date, datetime, timezone
-from typing import Optional
-
 from __future__ import annotations
 
 import uuid
 from datetime import date, datetime, timezone
-from typing import Optional, List
+from typing import Optional
 
 from sqlalchemy import String, SmallInteger, Date, DateTime, Text
 from sqlalchemy.dialects.postgresql import UUID, JSONB
@@ -52,22 +48,22 @@ class User(Base):
     )
 
     # Relationships
-    moments: Mapped[list["Moment"]] = relationship(
+    moments: Mapped[list[Moment]] = relationship(
         "Moment", backref="author", lazy="selectin"
     )
-    comments: Mapped[list["Comment"]] = relationship(
+    comments: Mapped[list[Comment]] = relationship(
         "Comment", back_populates="user", lazy="selectin"
     )
-    likes: Mapped[list["Like"]] = relationship(
+    likes: Mapped[list[Like]] = relationship(
         "Like", back_populates="user", lazy="selectin"
     )
-    following: Mapped[list["Follow"]] = relationship(
+    following: Mapped[list[Follow]] = relationship(
         "Follow",
         foreign_keys="Follow.follower_id",
         back_populates="follower",
         lazy="selectin",
     )
-    followers: Mapped[list["Follow"]] = relationship(
+    followers: Mapped[list[Follow]] = relationship(
         "Follow",
         foreign_keys="Follow.following_id",
         back_populates="following",

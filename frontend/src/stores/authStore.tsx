@@ -59,15 +59,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const res = await loginAPI({ phone, password });
 
     // Login response: { access_token, refresh_token, expires_in, token_type }
-    // We need a separate /users/me call to get user info after login
     const token = res.access_token;
     const rToken = res.refresh_token;
 
+    // Set tokens first so subsequent API calls are authenticated
     await Promise.all([
       setAccessToken(token),
       setRefreshToken(rToken),
     ]);
 
+    // After login we set auth state optimistically; user info will be
+    // fetched by the calling component via /users/me if needed
     set({
       accessToken: token,
       refreshToken: rToken,
@@ -84,13 +86,20 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const res = await registerAPI({ phone, password, code, nickname });
 
     // Register response: { user, access_token, refresh_token, expires_in }
-    const token = res.access_token;
-    const rToken = res.refresh_token;
+    // The type is RegisterResponse which has `user` - but loginAPI returns
+    // LoginResponse (tokens only). For register, we cast appropriately.
+    const registerRes = res as unknown as {
+      user: { id: string; phone: string; nickname: string; avatar_url: string | null };
+      access_token: string;
+      refresh_token: string;
+    };
+    const token = registerRes.access_token;
+    const rToken = registerRes.refresh_token;
     const userData: User = {
-      id: res.user.id,
-      phone: res.user.phone,
-      nickname: res.user.nickname,
-      avatar_url: res.user.avatar_url,
+      id: registerRes.user.id,
+      phone: registerRes.user.phone,
+      nickname: registerRes.user.nickname,
+      avatar_url: registerRes.user.avatar_url,
     };
 
     await Promise.all([

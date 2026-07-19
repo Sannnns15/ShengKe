@@ -13,7 +13,8 @@ import { PAGE_SIZE } from "../constants/config";
 export async function createMoment(
   data: CreateMomentParams
 ): Promise<MomentDetail> {
-  return apiClient.post<MomentDetail>("/moments", data);
+  const res = await apiClient.post("/moments", data);
+  return res as unknown as MomentDetail;
 }
 
 /**
@@ -23,11 +24,10 @@ export async function getMomentFeed(
   page: number,
   pageSize: number = PAGE_SIZE
 ): Promise<PaginatedData<MomentFeedItem>> {
-  const response = await apiClient.get<{
-    items: MomentFeedItem[];
-    meta: { page: number; page_size: number; total: number };
-  }>("/moments", { params: { page, page_size: pageSize } });
-  return response;
+  const res = await apiClient.get("/moments", {
+    params: { page, page_size: pageSize },
+  });
+  return res as unknown as PaginatedData<MomentFeedItem>;
 }
 
 /**
@@ -36,7 +36,8 @@ export async function getMomentFeed(
 export async function getMomentById(
   id: string
 ): Promise<MomentDetail> {
-  return apiClient.get<MomentDetail>(`/moments/${id}`);
+  const res = await apiClient.get(`/moments/${id}`);
+  return res as unknown as MomentDetail;
 }
 
 /**
@@ -46,14 +47,15 @@ export async function updateMoment(
   id: string,
   data: Partial<CreateMomentParams>
 ): Promise<MomentDetail> {
-  return apiClient.patch<MomentDetail>(`/moments/${id}`, data);
+  const res = await apiClient.patch(`/moments/${id}`, data);
+  return res as unknown as MomentDetail;
 }
 
 /**
  * 删除 Moment
  */
 export async function deleteMoment(id: string): Promise<void> {
-  return apiClient.delete(`/moments/${id}`);
+  await apiClient.delete(`/moments/${id}`);
 }
 
 /**
@@ -62,5 +64,6 @@ export async function deleteMoment(id: string): Promise<void> {
 export async function toggleArchive(
   id: string
 ): Promise<MomentDetail> {
-  return apiClient.post<MomentDetail>(`/moments/${id}/archive`);
+  const res = await apiClient.post(`/moments/${id}/archive`);
+  return res as unknown as MomentDetail;
 }
