@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] — 2026-07-21
+
+### Added
+
+#### Backend — Feed Optimization & Cursor Pagination
+- `FeedItem` schema: includes `author_nickname`, `author_avatar_url`, `is_liked` in feed responses
+- Feed sorting: `sort=latest` (default, created_at desc) and `sort=hot` (like_count desc, 30-day window)
+- Cursor-based pagination: `GET /moments/cursor` with base64-encoded cursor, supports `sort` param
+- `CursorParams`, `CursorMeta`, `CursorPaginatedResult` schemas in `schemas/common.py`
+- Moment detail (`GET /moments/{id}`) returns `is_liked` flag via `get_moment_with_like_status`
+- `get_feed` joins User and Like tables for author info and like status
+- Privacy filtering: `is_archived` exclusion confirmed, privacy level checks in feed
+
+#### Frontend — Feed Author UI & Like Interaction
+- MomentCard header: author avatar (Ionicons person-circle fallback) + nickname display
+- `useLikeToggle` hook: optimistic UI update on like/unlike
+- Feed sort toggle: "最新" / "热门" buttons in feed header, resets pagination on switch
+- Moment detail page (`[id].tsx`): like button with interaction
+- `getMomentFeed` and `useMomentFeed` support sort parameter
+- Profile page shows author avatar and nickname
+
 ## [0.4.0] — 2026-07-20
 
 ### Added
