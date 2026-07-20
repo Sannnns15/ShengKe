@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
+  Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, router } from "expo-router";
@@ -79,9 +80,16 @@ export default function ProfileScreen() {
         <>
           {/* ── User Info Header ── */}
           <View style={styles.header}>
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>{avatarChar}</Text>
-            </View>
+            {profile?.avatar_url ? (
+              <Image
+                source={{ uri: profile.avatar_url }}
+                style={styles.avatarImage}
+              />
+            ) : (
+              <View style={styles.avatar}>
+                <Text style={styles.avatarText}>{avatarChar}</Text>
+              </View>
+            )}
 
             <Text style={styles.name}>{displayName}</Text>
             <Text style={styles.bio}>{displayBio}</Text>
@@ -165,6 +173,12 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.bgTertiary,
     justifyContent: "center",
     alignItems: "center",
+    marginBottom: Spacing.md,
+  },
+  avatarImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
     marginBottom: Spacing.md,
   },
   avatarText: {

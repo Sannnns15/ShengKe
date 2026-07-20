@@ -64,6 +64,9 @@ export interface MomentFeedItem {
   like_count: number;
   view_count: number;
   created_at: string;
+  author_nickname?: string;
+  author_avatar_url?: string | null;
+  is_liked?: boolean;
 }
 
 export interface MomentDetail extends MomentFeedItem {

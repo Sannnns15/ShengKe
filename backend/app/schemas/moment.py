@@ -72,6 +72,7 @@ class MomentResponse(BaseModel):
     view_count: int
     created_at: datetime
     updated_at: datetime
+    is_liked: bool = False
 
     class Config:
         from_attributes = True
@@ -97,3 +98,25 @@ class MomentListItem(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# ── Feed Item (with author info + is_liked) ──
+
+class FeedItem(BaseModel):
+    id: UUID
+    user_id: UUID
+    title: str | None
+    content: str | None
+    mood: str | None
+    weather: str | None
+    location_name: str | None
+    privacy_level: int
+    is_archived: bool
+    ai_tags: list[str] | None
+    comment_count: int
+    like_count: int
+    view_count: int
+    created_at: datetime
+    author_nickname: str
+    author_avatar_url: str | None = None
+    is_liked: bool = False

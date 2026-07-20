@@ -7,19 +7,20 @@ from sqlalchemy import update as sa_update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_db, get_current_user_id
-from app.schemas.common import Result, PaginatedResult, PaginationMeta
+from app.schemas.common import Result, PaginatedResult, PaginationMeta, CursorPaginatedResult, CursorMeta
 from app.schemas.moment import (
     CreateMomentRequest,
     CreateMomentResponseData,
     UpdateMomentRequest,
     UpdatePrivacyRequest,
     MomentResponse,
-    MomentListItem,
+    FeedItem,
 )
 from app.services.moment import (
     create_moment,
-    get_moment,
+    get_moment_with_like_status,
     get_feed,
+    get_feed_cursor,
     update_moment,
     delete_moment,
     toggle_archive,
@@ -68,11 +69,11 @@ async def get_moment_endpoint(
     db: AsyncSession = Depends(get_db),
     user_id: UUID = Depends(get_current_user_id),
 ):
-    """Get a single Moment by id."""
-    moment = await get_moment(db, moment_id, user_id)
-    if moment is None:
+    """Get a single Moment by id (includes is_liked flag)."""
+    moment_dict = await get_moment_with_like_status(db, moment_id, user_id)
+    if moment_dict is None:
         return Result(code=1404, message="时刻不存在或无权访问", data=None)
-    return Result(code=0, message="success", data=MomentResponse.model_validate(moment))
+    return Result(code=0, message="success", data=MomentResponse(**moment_dict))
 
 
 @router.patch("/{moment_id}", response_model=Result[MomentResponse])
@@ -103,16 +104,22 @@ async def delete_moment_endpoint(
     return Result(code=0, message="success")
 
 
-@router.get("", response_model=PaginatedResult[MomentListItem])
+@router.get("", response_model=PaginatedResult[FeedItem])
 async def list_moments_feed(
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
+    sort: str = Query(default="latest", pattern=r"^(latest|hot)$"),
     db: AsyncSession = Depends(get_db),
     user_id: UUID = Depends(get_current_user_id),
 ):
-    """Feed / explore moments (public + followed users)."""
-    moments, total = await get_feed(db, user_id, page, page_size)
-    items = [MomentListItem.model_validate(m) for m in moments]
+    """Feed / explore moments (public + followed users).
+
+    Sort options:
+    - latest (default): by created_at descending
+    - hot: by like_count descending
+    """
+    moments, total = await get_feed(db, user_id, page, page_size, sort)
+    items = [FeedItem(**m) for m in moments]
     return PaginatedResult(
         code=0,
         message="success",
@@ -121,7 +128,26 @@ async def list_moments_feed(
     )
 
 
+@router.get("/cursor", response_model=CursorPaginatedResult[FeedItem])
+async def list_moments_cursor(
+    cursor: str | None = Query(default=None),
+    limit: int = Query(default=20, ge=1, le=100),
+    sort: str = Query(default="latest", pattern=r"^(latest|hot)$"),
+    db: AsyncSession = Depends(get_db),
+    user_id: UUID = Depends(get_current_user_id),
+):
+    """Feed with cursor-based pagination.
 
+    Cursor is base64("{id},{created_at_timestamp}") for latest sort,
+    or base64("{id},{like_count}") for hot sort.
+    """
+    items, next_cursor, has_more = await get_feed_cursor(db, user_id, cursor, limit, sort)
+    return CursorPaginatedResult(
+        code=0,
+        message="success",
+        data=[FeedItem(**m) for m in items],
+        meta=CursorMeta(next_cursor=next_cursor, has_more=has_more),
+    )
 
 
 @router.post("/{moment_id}/archive", response_model=Result[MomentResponse])

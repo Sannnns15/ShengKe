@@ -30,19 +30,25 @@ export async function createMoment(
  *
  * Uses raw axios call to bypass the response interceptor that unwraps
  * ApiResponse envelope, so we can access both `data` (items) and `meta`.
+ *
+ * @param sort - 排序方式："latest"（最新）| "hot"（热门），默认 "latest"
  */
 export async function getMomentFeed(
   page: number,
-  pageSize: number = PAGE_SIZE
+  pageSize: number = PAGE_SIZE,
+  sort: "latest" | "hot" = "latest"
 ): Promise<PaginatedData<MomentFeedItem>> {
   const token = await getAccessToken();
   const raw = await axios.get<
     ApiResponse<MomentFeedItem[]> & { meta: PaginationMeta }
-  >(`${API_BASE_URL}/moments?page=${page}&page_size=${pageSize}`, {
-    headers: {
-      Authorization: token ? `Bearer ${token}` : undefined,
-    },
-  });
+  >(
+    `${API_BASE_URL}/moments?page=${page}&page_size=${pageSize}&sort=${sort}`,
+    {
+      headers: {
+        Authorization: token ? `Bearer ${token}` : undefined,
+      },
+    }
+  );
   const body = raw.data;
   return {
     items: body.data,

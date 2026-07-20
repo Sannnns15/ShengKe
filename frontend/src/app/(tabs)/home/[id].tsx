@@ -202,16 +202,31 @@ export default function MomentDetailScreen() {
             <Text style={styles.moodEmoji}>{moment.mood}</Text>
           )}
 
-          {/* ── Title ── */}
-          {moment.title && (
-            <Text style={styles.title}>{moment.title}</Text>
-          )}
-
-          {/* ── Meta: time + privacy ── */}
-          <View style={styles.metaRow}>
-            <Text style={styles.time}>
-              {formatRelativeTime(moment.created_at)}
-            </Text>
+          {/* ── Author Row ── */}
+          <View style={styles.authorRow}>
+            <View style={styles.authorLeft}>
+              {moment.author_avatar_url ? (
+                <View style={styles.authorAvatarCircle}>
+                  <Text style={styles.authorAvatarText}>
+                    {getInitial(moment.author_nickname || "用户")}
+                  </Text>
+                </View>
+              ) : (
+                <Ionicons
+                  name="person-circle"
+                  size={36}
+                  color={Colors.textTertiary}
+                />
+              )}
+              <View style={styles.authorInfo}>
+                <Text style={styles.authorNickname}>
+                  {moment.author_nickname || "用户"}
+                </Text>
+                <Text style={styles.time}>
+                  {formatRelativeTime(moment.created_at)}
+                </Text>
+              </View>
+            </View>
             <View style={styles.privacyBadge}>
               <Ionicons name="lock-closed" size={10} color={Colors.textTertiary} />
               <Text style={styles.privacyText}>
@@ -219,6 +234,11 @@ export default function MomentDetailScreen() {
               </Text>
             </View>
           </View>
+
+          {/* ── Title ── */}
+          {moment.title && (
+            <Text style={styles.title}>{moment.title}</Text>
+          )}
 
           {/* ── Content ── */}
           {moment.content && (
@@ -474,6 +494,41 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: Spacing.page,
     paddingBottom: Spacing.xxxl,
+  },
+
+  // ── Author Row ──
+  authorRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: Spacing.md,
+  },
+  authorLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    flex: 1,
+  },
+  authorAvatarCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Colors.primaryLight + "40",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  authorAvatarText: {
+    fontSize: FontSize.small,
+    fontWeight: FontWeight.bold,
+    color: Colors.primary,
+  },
+  authorInfo: {
+    flex: 1,
+  },
+  authorNickname: {
+    fontSize: FontSize.body,
+    fontWeight: FontWeight.semibold,
+    color: Colors.textPrimary,
   },
 
   // ── Content ──

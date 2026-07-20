@@ -3,10 +3,11 @@ import { getMomentFeed, getUserMoments } from "../services/moments";
 import { PAGE_SIZE } from "../constants/config";
 import type { MomentFeedItem, PaginatedData } from "../types/api";
 
-export function useMomentFeed() {
+export function useMomentFeed(sort: "latest" | "hot" = "latest") {
   return useInfiniteQuery<PaginatedData<MomentFeedItem>>({
-    queryKey: ["momentFeed"],
-    queryFn: ({ pageParam }) => getMomentFeed(pageParam as number, PAGE_SIZE),
+    queryKey: ["momentFeed", sort],
+    queryFn: ({ pageParam }) =>
+      getMomentFeed(pageParam as number, PAGE_SIZE, sort),
     initialPageParam: 1,
     getNextPageParam: (lastPage) => {
       const { page, page_size, total } = lastPage.meta;
