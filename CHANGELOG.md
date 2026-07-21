@@ -143,6 +143,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `components/moment/MomentCard.tsx` — media preview images, tap to open gallery
 - Gallery integrated in home feed, profile page, and moment detail page
 
+## [0.12.0] — 2026-07-22 (Final Sprint)
+
+### Added
+
+#### Backend — Redis Cache Layer
+- `app/core/cache.py` — async Redis client with lazy init: `get`, `set`, `delete`, `delete_pattern`, `make_key`
+- Configurable TTLs: feed=60s, profile=300s, moment=120s, search=30s
+- Feed caching: `get_feed` and `get_feed_cursor` cache first page (cursor=None) for 60s
+- Moment caching: `get_moment_with_like_status` caches detail for 120s
+- Profile caching: `get_user_profile` and `get_own_profile` cache for 300s
+- Search caching: `search_moments` caches results for 30s
+- Cache invalidation: writes to create/update/delete/archive/privacy clear affected cache keys
+- `redis[hiredis]>=5.0` dependency added
+- `app/main.py` updated with `lifespan` handler to close Redis on shutdown
+
+#### Backend — Docker Production Deployment
+- `Dockerfile` — multi-stage build (builder + runtime), Python 3.11-slim, 4 uvicorn workers
+- `docker-compose.prod.yml` — PostgreSQL 16, Redis 7, API server, Nginx with health checks and restart policies
+- `nginx.conf` — API reverse proxy, static file serving, WebSocket upgrade support, rate limiting zone
+- `app/core/config.py` — production hardening: CORS production origins support, JWT validation
+
+#### Backend — Compliance
+- User deletion (`DELETE /users/me`) now clears Redis cache (profile + feed patterns)
+- Nginx rate limiting (burst=20)
+
+#### Frontend — FlatList 60fps Optimization
+- `React.memo` on MomentCard, CommentItem, LikeButton, FollowButton
+- Feed FlatList: `removeClippedSubviews={true}`, `maxToRenderPerBatch={10}`, `windowSize={5}`, `initialNumToRender={5}`
+- `useCallback` / `useMemo` audit across all major screens
+
+#### Frontend — Skeleton Screens
+- `components/common/Skeleton.tsx` — animated pulse skeleton with configurable width/height/radius
+- `components/common/MomentCardSkeleton.tsx` — full card skeleton (author row, title, content lines, tags, footer)
+- Feed page (`home/index.tsx`) and Explore page show 3 skeleton cards during loading
+- Export via `components/common/index.ts`
+
+### Fixed
+
+#### Backend — moment.py Syntax Error
+- Removed duplicate orphaned docstring block (lines 528-532) in `get_feed_cursor` function that caused Python tokenizer EOF error
+- File now passes `ast.parse()` validation
+
 ## [0.10.0] — 2026-07-22
 
 ### Added
