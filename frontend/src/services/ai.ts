@@ -1,6 +1,21 @@
 import { apiClient } from "./client";
 import type { ChatMessage, MomentAnalysis, MoodReport } from "../types/api";
 
+// ── Mood Stats types ────────────────────────────────────
+export interface DailyMood {
+  date: string
+  positive: number
+  neutral: number
+  negative: number
+  count: number
+}
+
+export interface MoodStats {
+  daily_moods: DailyMood[]
+  emotion_pie: { positive: number; neutral: number; negative: number }
+  top_tags: { tag: string; count: number }[]
+}
+
 /**
  * Analyze a single Moment for AI summary / emotion / tags.
  */
@@ -8,6 +23,18 @@ export async function analyzeMoment(
   momentId: string
 ): Promise<MomentAnalysis> {
   return apiClient.post(`/ai/moments/${momentId}/analyze`);
+}
+
+/**
+ * Fetch mood report for a given period (week / month).
+ */
+/**
+ * Fetch mood statistics (daily breakdown, pie, tags) for the given number of days.
+ */
+export async function getMoodStats(days: number = 30): Promise<MoodStats> {
+  return apiClient.get('/users/me/mood-stats', {
+    params: { days },
+  }) as unknown as MoodStats;
 }
 
 /**

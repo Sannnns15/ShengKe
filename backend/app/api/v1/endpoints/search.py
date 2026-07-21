@@ -29,17 +29,35 @@ async def search_moments_endpoint(
     ),
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
+    user_id_filter: UUID | None = Query(
+        None, alias="user_id", description="按作者 ID 筛选（可选）"
+    ),
+    date_from: str | None = Query(
+        None, description="起始日期 YYYY-MM-DD（可选）"
+    ),
+    date_to: str | None = Query(
+        None, description="结束日期 YYYY-MM-DD（可选）"
+    ),
+    mood: str | None = Query(
+        None, pattern=r"^(positive|neutral|negative)$",
+        description="按情绪筛选：positive/neutral/negative（可选）"
+    ),
     db: AsyncSession = Depends(get_db),
-    user_id: UUID = Depends(get_current_user_id),
+    current_user_id: UUID = Depends(get_current_user_id),
 ):
     """Full-text search over Moments using PostgreSQL tsvector.
 
     Supports weighted search (title > content) with sorting options.
     Returns public moments and the current user's own moments.
-    Optionally filter by AI tag.
+    Optionally filter by AI tag, author, date range, or emotion.
     """
     moments, total = await search_moments(
-        db, q, user_id, page, page_size, tag=tag, sort=sort,
+        db, q, current_user_id, page, page_size,
+        tag=tag, sort=sort,
+        user_id=user_id_filter,
+        date_from=date_from,
+        date_to=date_to,
+        mood=mood,
     )
     items = [FeedItem(**m) for m in moments]
     return PaginatedResult(

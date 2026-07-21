@@ -30,7 +30,7 @@ class Notification(Base):
         nullable=True,
     )
     type: Mapped[str] = mapped_column(
-        String(50), nullable=False, comment="like, comment, follow, system"
+        String(50), nullable=False, comment="like, comment, follow, mention, system"
     )
     target_type: Mapped[Optional[str]] = mapped_column(
         String(50), nullable=True, comment="moment, comment"

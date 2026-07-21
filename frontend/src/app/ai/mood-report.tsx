@@ -7,11 +7,13 @@ import {
   ActivityIndicator,
   ScrollView,
   RefreshControl,
+  Dimensions,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
-import { getMoodReport } from "../../services/ai";
+import { getMoodReport, getMoodStats } from "../../services/ai";
+import type { MoodStats } from "../../services/ai";
 import { Colors, Spacing, FontSize, FontWeight, Radius } from "../../constants/theme";
 import { getMoodLabel } from "../../constants/emotions";
 import type { MoodReport } from "../../types/api";
@@ -23,6 +25,14 @@ const PERIOD_OPTIONS = [
 ] as const;
 
 type Period = (typeof PERIOD_OPTIONS)[number]["key"];
+
+// ── Tab options ────────────────────────────────────────
+const TABS = [
+  { key: "report", label: "情绪报告" },
+  { key: "stats", label: "数据统计" },
+] as const;
+
+type TabKey = (typeof TABS)[number]["key"];
 
 // ── Helper ─────────────────────────────────────────────
 function formatDate(dateStr: string): string {
@@ -45,10 +55,139 @@ function getScoreEmoji(score: number): string {
   return "😞";
 }
 
+function getMoodEmojiType(v: { positive: number; neutral: number; negative: number }): string {
+  if (v.positive > v.neutral && v.positive > v.negative) return "😊";
+  if (v.neutral >= v.positive && v.neutral >= v.negative) return "😐";
+  return "😞";
+}
+
+// ── Color dots for mood trend ──────────────────────────
+const DOT_SIZE = 12;
+const DOT_GAP = 6;
+
+function MoodTrendDots({ dailyMoods }: { dailyMoods: MoodStats["daily_moods"] }) {
+  const screenWidth = Dimensions.get("window").width;
+  const padding = Spacing.md * 2 + Spacing.page;
+  const availableWidth = screenWidth - padding;
+  const totalItemWidth = DOT_SIZE + DOT_GAP;
+  const maxDots = Math.floor(availableWidth / totalItemWidth);
+  const dots = dailyMoods.slice(0, maxDots);
+
+  if (!dots.length) {
+    return <Text style={styles.emptyText}>暂无日常数据</Text>;
+  }
+
+  return (
+    <View>
+      <View style={styles.trendDotsRow}>
+        {dots.map((d, i) => {
+          const dotColor = getDotColor(d);
+          return (
+            <View key={d.date + i} style={styles.trendDotItem}>
+              <View style={[styles.trendDot, { backgroundColor: dotColor }]} />
+              <Text style={styles.trendDotLabel}>
+                {new Date(d.date).getDate()}
+              </Text>
+            </View>
+          );
+        })}
+      </View>
+      <View style={styles.trendLegend}>
+        <View style={styles.legendItem}>
+          <View style={[styles.legendDot, { backgroundColor: Colors.success }]} />
+          <Text style={styles.legendText}>正面</Text>
+        </View>
+        <View style={styles.legendItem}>
+          <View style={[styles.legendDot, { backgroundColor: Colors.info }]} />
+          <Text style={styles.legendText}>中性</Text>
+        </View>
+        <View style={styles.legendItem}>
+          <View style={[styles.legendDot, { backgroundColor: Colors.warning }]} />
+          <Text style={styles.legendText}>负面</Text>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+function getDotColor(d: { positive: number; neutral: number; negative: number }): string {
+  if (d.positive > d.neutral && d.positive > d.negative) return Colors.success;
+  if (d.neutral >= d.positive && d.neutral >= d.negative) return Colors.info;
+  return Colors.warning;
+}
+
+// ── Pie chart (simple colored bars) ────────────────────
+function MoodPieChart({ pie }: { pie: { positive: number; neutral: number; negative: number } }) {
+  const total = pie.positive + pie.neutral + pie.negative || 1;
+  const segments = [
+    { label: "😊 正面", value: pie.positive, color: Colors.success, pct: Math.round((pie.positive / total) * 100) },
+    { label: "😐 中性", value: pie.neutral, color: Colors.info, pct: Math.round((pie.neutral / total) * 100) },
+    { label: "😞 负面", value: pie.negative, color: Colors.warning, pct: Math.round((pie.negative / total) * 100) },
+  ];
+
+  return (
+    <View>
+      {/* Stacked bar as a simple pie substitute */}
+      <View style={styles.pieBarTrack}>
+        {segments
+          .filter((s) => s.value > 0)
+          .map((s) => (
+            <View
+              key={s.label}
+              style={[
+                styles.pieBarSegment,
+                {
+                  backgroundColor: s.color,
+                  flex: s.value,
+                },
+              ]}
+            />
+          ))}
+      </View>
+      <View style={styles.pieLabels}>
+        {segments.map((s) => (
+          <View key={s.label} style={styles.pieLabelRow}>
+            <View style={[styles.pieLabelDot, { backgroundColor: s.color }]} />
+            <Text style={styles.pieLabelText}>
+              {s.label} — {s.pct}%
+            </Text>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+// ── Top tags ────────────────────────────────────────────
+function TopTagList({ tags }: { tags: { tag: string; count: number }[] }) {
+  if (!tags.length) return null;
+  const maxCount = Math.max(...tags.map((t) => t.count), 1);
+  return (
+    <View style={styles.tagsWrap}>
+      {tags.map((t) => (
+        <View key={t.tag} style={styles.tagRow}>
+          <Text style={styles.tagName}>{t.tag}</Text>
+          <View style={styles.tagBarTrack}>
+            <View
+              style={[
+                styles.tagBarFill,
+                { width: `${(t.count / maxCount) * 100}%` as any },
+              ]}
+            />
+          </View>
+          <Text style={styles.tagCount}>{t.count}次</Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
 // ── Main Screen ────────────────────────────────────────
 export default function MoodReportScreen() {
   const [period, setPeriod] = useState<Period>("week");
+  const [activeTab, setActiveTab] = useState<TabKey>("report");
 
+  // ── Report query ──
   const {
     data: report,
     isLoading,
@@ -58,6 +197,19 @@ export default function MoodReportScreen() {
   } = useQuery<MoodReport>({
     queryKey: ["moodReport", period],
     queryFn: () => getMoodReport({ period }),
+    enabled: activeTab === "report",
+  });
+
+  // ── Stats query ──
+  const {
+    data: stats,
+    isLoading: statsLoading,
+    isError: statsError,
+    refetch: refetchStats,
+  } = useQuery<MoodStats>({
+    queryKey: ["moodStats", 30],
+    queryFn: () => getMoodStats(30),
+    enabled: activeTab === "stats",
   });
 
   const renderHeader = () => (
@@ -71,32 +223,57 @@ export default function MoodReportScreen() {
         <View style={{ width: 60 }} />
       </View>
 
-      {/* ── Period Selector ── */}
-      <View style={styles.periodRow}>
-        {PERIOD_OPTIONS.map((opt) => (
+      {/* ── Tab Selector ── */}
+      <View style={styles.tabRow}>
+        {TABS.map((tab) => (
           <TouchableOpacity
-            key={opt.key}
+            key={tab.key}
             style={[
-              styles.periodButton,
-              period === opt.key && styles.periodButtonActive,
+              styles.tabButton,
+              activeTab === tab.key && styles.tabButtonActive,
             ]}
-            onPress={() => setPeriod(opt.key)}
+            onPress={() => setActiveTab(tab.key)}
           >
             <Text
               style={[
-                styles.periodText,
-                period === opt.key && styles.periodTextActive,
+                styles.tabText,
+                activeTab === tab.key && styles.tabTextActive,
               ]}
             >
-              {opt.label}
+              {tab.label}
             </Text>
           </TouchableOpacity>
         ))}
       </View>
+
+      {/* ── Period Selector ── */}
+      {activeTab === "report" && (
+        <View style={styles.periodRow}>
+          {PERIOD_OPTIONS.map((opt) => (
+            <TouchableOpacity
+              key={opt.key}
+              style={[
+                styles.periodButton,
+                period === opt.key && styles.periodButtonActive,
+              ]}
+              onPress={() => setPeriod(opt.key)}
+            >
+              <Text
+                style={[
+                  styles.periodText,
+                  period === opt.key && styles.periodTextActive,
+                ]}
+              >
+                {opt.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
     </View>
   );
 
-  // ── Emotion distribution bars ──
+  // ── Emotion distribution bars (report tab) ──
   const renderDistributions = (r: MoodReport) => {
     const { positive, neutral, negative } = r.emotion_distribution;
     const total = positive + neutral + negative || 1;
@@ -152,40 +329,43 @@ export default function MoodReportScreen() {
           </Text>
         </View>
 
-        {r.summary ? (
-          <Text style={styles.summary}>{r.summary}</Text>
-        ) : null}
+        {r.summary && <Text style={styles.summary}>{r.summary}</Text>}
       </View>
     );
   };
 
-  // ── Daily moods list ──
-  const renderDailyMoods = (r: MoodReport) => (
-    <View style={styles.card}>
-      <Text style={styles.cardTitle}>每日心情</Text>
-      {r.daily_moods.map((day) => (
-        <View key={day.date} style={styles.dayRow}>
-          <Text style={styles.dayDate}>{formatDate(day.date)}</Text>
-          <Text style={styles.dayEmoji}>
-            {getScoreEmoji(day.mood_score)}
-          </Text>
-          <View style={styles.dayMoodInfo}>
-            <Text style={styles.dayEmotion}>
-              {getMoodLabel(day.dominant_emotion) || day.dominant_emotion}
+  // ── Daily moods ──
+  const renderDailyMoods = (r: MoodReport) => {
+    if (!r.daily_moods.length) return null;
+
+    return (
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>每日情绪</Text>
+
+        {r.daily_moods.map((day) => (
+          <View key={day.date} style={styles.dayRow}>
+            <Text style={styles.dayDate}>{formatDate(day.date)}</Text>
+            <Text style={styles.dayEmoji}>
+              {getScoreEmoji(day.mood_score)}
             </Text>
+            <View style={styles.dayMoodInfo}>
+              <Text style={styles.dayEmotion}>
+                {getMoodLabel(day.dominant_emotion) || day.dominant_emotion}
+              </Text>
+            </View>
+            <View style={styles.dayScoreTrack}>
+              <View
+                style={[
+                  styles.dayScoreFill,
+                  { width: `${(day.mood_score / 5) * 100}%` as any },
+                ]}
+              />
+            </View>
           </View>
-          <View style={styles.dayScoreTrack}>
-            <View
-              style={[
-                styles.dayScoreFill,
-                { width: `${Math.max(day.mood_score * 20, 10)}%` as any },
-              ]}
-            />
-          </View>
-        </View>
-      ))}
-    </View>
-  );
+        ))}
+      </View>
+    );
+  };
 
   // ── Top keywords ──
   const renderKeywords = (r: MoodReport) => {
@@ -204,34 +384,85 @@ export default function MoodReportScreen() {
     );
   };
 
-  // ── Loading / Error ──
-  if (isLoading) {
-    return (
-      <SafeAreaView style={styles.container} edges={["top"]}>
-        {renderHeader()}
+  // ── Stats tab content ──
+  const renderStatsTab = () => {
+    if (statsLoading) {
+      return (
         <View style={styles.center}>
           <ActivityIndicator size="large" color={Colors.primary} />
-          <Text style={styles.loadingText}>加载情绪报告中…</Text>
+          <Text style={styles.loadingText}>加载统计数据…</Text>
         </View>
-      </SafeAreaView>
-    );
-  }
+      );
+    }
 
-  if (isError) {
-    return (
-      <SafeAreaView style={styles.container} edges={["top"]}>
-        {renderHeader()}
+    if (statsError) {
+      return (
         <View style={styles.center}>
           <Text style={styles.errorText}>加载失败</Text>
-          <TouchableOpacity onPress={() => refetch()}>
+          <TouchableOpacity onPress={() => refetchStats()}>
             <Text style={styles.retryText}>点击重试</Text>
           </TouchableOpacity>
         </View>
+      );
+    }
+
+    if (!stats) {
+      return (
+        <View style={styles.center}>
+          <Text style={styles.emptyText}>暂无数据</Text>
+        </View>
+      );
+    }
+
+    return (
+      <>
+        {/* ── Daily Mood Trend (colored dots) ── */}
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>情绪趋势 (每日)</Text>
+          <MoodTrendDots dailyMoods={stats.daily_moods} />
+        </View>
+
+        {/* ── Mood Pie Distribution ── */}
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>情绪比例</Text>
+          <MoodPieChart pie={stats.emotion_pie} />
+        </View>
+
+        {/* ── Top Tags ── */}
+        {stats.top_tags && stats.top_tags.length > 0 && (
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>高频标签</Text>
+            <TopTagList tags={stats.top_tags} />
+          </View>
+        )}
+      </>
+    );
+  };
+
+  // ── Loading / Error (report tab) ──
+  if (activeTab === "report" && (isLoading || isError)) {
+    return (
+      <SafeAreaView style={styles.container} edges={["top"]}>
+        {renderHeader()}
+        {isLoading && (
+          <View style={styles.center}>
+            <ActivityIndicator size="large" color={Colors.primary} />
+            <Text style={styles.loadingText}>加载情绪报告中…</Text>
+          </View>
+        )}
+        {isError && (
+          <View style={styles.center}>
+            <Text style={styles.errorText}>加载失败</Text>
+            <TouchableOpacity onPress={() => refetch()}>
+              <Text style={styles.retryText}>点击重试</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </SafeAreaView>
     );
   }
 
-  if (!report) {
+  if (activeTab === "report" && !report) {
     return (
       <SafeAreaView style={styles.container} edges={["top"]}>
         {renderHeader()}
@@ -246,15 +477,26 @@ export default function MoodReportScreen() {
     <SafeAreaView style={styles.container} edges={["top"]}>
       <ScrollView
         refreshControl={
-          <RefreshControl refreshing={isRefetching} onRefresh={refetch} />
+          <RefreshControl
+            refreshing={isRefetching}
+            onRefresh={() => (activeTab === "report" ? refetch() : refetchStats())}
+          />
         }
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
         {renderHeader()}
-        {renderDistributions(report)}
-        {renderDailyMoods(report)}
-        {renderKeywords(report)}
+
+        {activeTab === "report" && report && (
+          <>
+            {renderDistributions(report)}
+            {renderDailyMoods(report)}
+            {renderKeywords(report)}
+          </>
+        )}
+
+        {activeTab === "stats" && renderStatsTab()}
+
         <View style={{ height: Spacing.xxl }} />
       </ScrollView>
     </SafeAreaView>
@@ -294,6 +536,34 @@ const styles = StyleSheet.create({
     fontSize: FontSize.bodyLarge,
     fontWeight: FontWeight.bold,
     color: Colors.textPrimary,
+  },
+  // ── Tab Selector ──
+  tabRow: {
+    flexDirection: "row",
+    paddingHorizontal: Spacing.page,
+    paddingVertical: Spacing.sm,
+    backgroundColor: Colors.bgCard,
+    gap: Spacing.sm,
+    borderBottomWidth: 0.5,
+    borderBottomColor: Colors.border,
+  },
+  tabButton: {
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
+    borderRadius: Radius.full,
+    backgroundColor: Colors.bg,
+  },
+  tabButtonActive: {
+    backgroundColor: Colors.primary,
+  },
+  tabText: {
+    fontSize: FontSize.body,
+    color: Colors.textSecondary,
+    fontWeight: FontWeight.medium,
+  },
+  tabTextActive: {
+    color: Colors.textInverse,
+    fontWeight: FontWeight.bold,
   },
   periodRow: {
     flexDirection: "row",
@@ -449,5 +719,105 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: FontSize.body,
     color: Colors.textTertiary,
+  },
+  // ── Trend Dots ──
+  trendDotsRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: DOT_GAP,
+  },
+  trendDotItem: {
+    alignItems: "center",
+    width: DOT_SIZE + 4,
+  },
+  trendDot: {
+    width: DOT_SIZE,
+    height: DOT_SIZE,
+    borderRadius: DOT_SIZE / 2,
+  },
+  trendDotLabel: {
+    fontSize: 8,
+    color: Colors.textTertiary,
+    marginTop: 2,
+  },
+  trendLegend: {
+    flexDirection: "row",
+    gap: Spacing.lg,
+    marginTop: Spacing.md,
+  },
+  legendItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  legendDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  legendText: {
+    fontSize: FontSize.caption,
+    color: Colors.textSecondary,
+  },
+  // ── Pie chart (stacked bar) ──
+  pieBarTrack: {
+    flexDirection: "row",
+    height: 24,
+    borderRadius: Radius.full,
+    overflow: "hidden",
+    backgroundColor: Colors.bg,
+  },
+  pieBarSegment: {
+    height: "100%",
+  },
+  pieLabels: {
+    marginTop: Spacing.md,
+    gap: Spacing.sm,
+  },
+  pieLabelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  pieLabelDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  pieLabelText: {
+    fontSize: FontSize.body,
+    color: Colors.textSecondary,
+  },
+  // ── Tags ──
+  tagsWrap: {
+    gap: Spacing.sm,
+  },
+  tagRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  tagName: {
+    width: 80,
+    fontSize: FontSize.body,
+    color: Colors.textPrimary,
+  },
+  tagBarTrack: {
+    flex: 1,
+    height: 16,
+    backgroundColor: Colors.bg,
+    borderRadius: Radius.full,
+    overflow: "hidden",
+  },
+  tagBarFill: {
+    height: "100%",
+    backgroundColor: Colors.primaryLight,
+    borderRadius: Radius.full,
+  },
+  tagCount: {
+    width: 40,
+    fontSize: FontSize.caption,
+    color: Colors.textTertiary,
+    textAlign: "right",
   },
 });

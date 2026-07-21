@@ -55,7 +55,7 @@ async def create_moment_endpoint(
         await db.execute(stmt)
         await db.commit()
 
-    # TODO: trigger AI tag extraction asynchronously
+    # AI tag extraction is triggered inside create_moment (non-blocking)
 
     return Result(
         code=0,
@@ -64,6 +64,9 @@ async def create_moment_endpoint(
             id=moment.id,
             user_id=moment.user_id,
             created_at=moment.created_at,
+            ai_tags=moment.ai_tags,
+            ai_summary=moment.ai_summary,
+            ai_emotion=moment.ai_emotion,
         ),
     )
 

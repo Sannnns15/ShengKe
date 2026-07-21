@@ -13,6 +13,8 @@ from app.models.like import Like
 from app.models.user import User
 from app.models.tag import Tag, MomentTag
 from app.services.audit import audit_text
+from app.services.mention import process_mentions
+from app.services.ai import analyze_moment as analyze_moment_service
 
 
 async def _ensure_tags(
@@ -78,8 +80,27 @@ async def create_moment(
         # Also set ai_tags for immediate search filtering
         moment.ai_tags = tag_names
 
+    # Process @mentions in content
+    if content:
+        await process_mentions(
+            db,
+            text=content,
+            actor_id=user_id,
+            target_type="moment",
+            target_id=moment.id,
+            content=content[:100],
+        )
+
     await db.commit()
     await db.refresh(moment)
+
+    # Trigger AI analysis (runs synchronously in mock mode; db is already committed
+    # so this updates ai_tags/ai_summary/ai_emotion in the background of the same request).
+    # When Celery is wired up, replace with:
+    #   from app.tasks.ai import analyze_moment_task
+    #   analyze_moment_task.delay(str(moment.id))
+    await analyze_moment_service(db, moment.id)
+
     return moment
 
 

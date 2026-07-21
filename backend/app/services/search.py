@@ -39,6 +39,10 @@ async def search_moments(
     page_size: int = 20,
     tag: str | None = None,
     sort: str = "relevance",
+    user_id: UUID | None = None,
+    date_from: str | None = None,
+    date_to: str | None = None,
+    mood: str | None = None,
 ) -> tuple[list[dict], int]:
     """Full-text search over Moments using PostgreSQL tsvector.
 
@@ -69,6 +73,27 @@ async def search_moments(
 
     if tag:
         conditions.append(Moment.ai_tags.any(tag))
+
+    if user_id:
+        conditions.append(Moment.user_id == user_id)
+
+    if date_from:
+        try:
+            dt_from = datetime.fromisoformat(date_from).replace(tzinfo=timezone.utc)
+            conditions.append(Moment.created_at >= dt_from)
+        except ValueError:
+            pass
+
+    if date_to:
+        try:
+            dt_to = datetime.fromisoformat(date_to).replace(tzinfo=timezone.utc)
+            conditions.append(Moment.created_at <= dt_to)
+        except ValueError:
+            pass
+
+    if mood:
+        if mood in ("positive", "neutral", "negative"):
+            conditions.append(Moment.ai_emotion == mood)
 
     # Build tsvector expression: coalesced title + ' ' + coalesced content
     # This matches the GIN index idx_moments_search.

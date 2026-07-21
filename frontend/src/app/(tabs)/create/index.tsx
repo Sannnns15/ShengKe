@@ -20,6 +20,7 @@ import * as ImagePicker from "expo-image-picker";
 import { createMoment } from "../../../services/moments";
 import { uploadMedia, uploadMediaDirect } from "../../../services/media";
 import { Colors, Spacing, FontSize, FontWeight, Radius } from "../../../constants/theme";
+import { MentionInput } from "../../../components/social/MentionInput";
 import type { CreateMomentParams } from "../../../types/api";
 
 // ── Mood Options ────────
@@ -237,11 +238,10 @@ export default function CreateScreen() {
           />
           <View style={styles.divider} />
 
-          {/* ── Content Input ── */}
-          <TextInput
+          {/* ── Content Input (with @mention) ── */}
+          <MentionInput
             style={styles.contentInput}
             placeholder="此时此刻，你想记录什么…"
-            placeholderTextColor={Colors.textTertiary}
             value={content}
             onChangeText={setContent}
             multiline

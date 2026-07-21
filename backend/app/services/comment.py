@@ -9,6 +9,7 @@ from app.models.comment import Comment
 from app.models.moment import Moment
 from app.models.user import User
 from app.services.notification import create_notification
+from app.services.mention import process_mentions
 
 
 async def create_comment(
@@ -57,6 +58,16 @@ async def create_comment(
             target_id=moment_id,
             content=content_preview,
         )
+
+    # Process @mentions in comment content
+    await process_mentions(
+        db,
+        text=content,
+        actor_id=user_id,
+        target_type="comment",
+        target_id=comment.id,
+        content=content[:100],
+    )
 
     return comment
 
