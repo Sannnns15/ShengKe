@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
 from uuid import UUID
 
-from sqlalchemy import select, func
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.comment import Comment
 from app.models.moment import Moment
+from app.models.user import User
 from app.services.notification import create_notification
 
 
@@ -61,35 +61,75 @@ async def create_comment(
     return comment
 
 
+async def _build_comment_tree(
+    db: AsyncSession,
+    moment_id: UUID,
+) -> list[dict]:
+    """Fetch all active comments for a moment and build a reply tree.
+
+    Returns a list of root comment dicts, each with nested ``replies``.
+    Each dict contains:
+        - All Comment columns
+        - ``author_nickname`` (str)
+        - ``author_avatar_url`` (str | None)
+        - ``replies`` (list of nested dicts, same shape)
+    """
+    # Fetch all non-deleted comments for this moment, joined with user
+    stmt = (
+        select(Comment, User.nickname, User.avatar_url)
+        .join(User, Comment.user_id == User.id)
+        .where(
+            Comment.moment_id == moment_id,
+            Comment.deleted_at.is_(None),
+        )
+        .order_by(Comment.created_at.asc())
+    )
+    result = await db.execute(stmt)
+    rows = result.all()
+
+    # Build lookup: comment_id -> dict
+    comments_by_id: dict[UUID, dict] = {}
+    root_comments: list[dict] = []
+
+    for comment, nickname, avatar_url in rows:
+        d = {
+            "id": comment.id,
+            "moment_id": comment.moment_id,
+            "user_id": comment.user_id,
+            "parent_id": comment.parent_id,
+            "content": comment.content,
+            "like_count": comment.like_count,
+            "created_at": comment.created_at,
+            "updated_at": comment.updated_at,
+            "author_nickname": nickname,
+            "author_avatar_url": avatar_url,
+            "replies": [],
+        }
+        comments_by_id[comment.id] = d
+
+        if comment.parent_id is None:
+            root_comments.append(d)
+
+    # Attach replies recursively
+    for cid, d in comments_by_id.items():
+        parent_id = d["parent_id"]
+        if parent_id is not None and parent_id in comments_by_id:
+            comments_by_id[parent_id]["replies"].append(d)
+
+    return root_comments
+
+
 async def get_moment_comments(
     db: AsyncSession,
     moment_id: UUID,
-    page: int = 1,
-    page_size: int = 20,
-) -> tuple[list[Comment], int]:
-    """Get paginated comments for a Moment, ordered by created_at ascending."""
-    conditions = [
-        Comment.moment_id == moment_id,
-        Comment.deleted_at.is_(None),
-    ]
+) -> list[dict]:
+    """Get all comments for a Moment as a tree structure with author info.
 
-    # Count total
-    count_query = select(func.count(Comment.id)).where(*conditions)
-    total_result = await db.execute(count_query)
-    total = total_result.scalar() or 0
-
-    # Fetch page
-    query = (
-        select(Comment)
-        .where(*conditions)
-        .order_by(Comment.created_at.asc())
-        .offset((page - 1) * page_size)
-        .limit(page_size)
-    )
-    result = await db.execute(query)
-    comments = list(result.scalars().all())
-
-    return comments, total
+    Returns a flat list of root comments; each comment contains nested
+    ``replies`` populated with its child comments (single level of nesting
+    is typical, but the tree supports arbitrary depth).
+    """
+    return await _build_comment_tree(db, moment_id)
 
 
 async def delete_comment(
@@ -97,7 +137,10 @@ async def delete_comment(
     comment_id: UUID,
     user_id: UUID,
 ) -> bool:
-    """Soft-delete a comment. Only the author can delete.
+    """Soft-delete a comment by replacing its content.
+
+    Only the author can delete. Content becomes ``"[该评论已被删除]"``.
+    Also decrements the moment's comment_count.
 
     Returns True if deleted, False if not found or not the author.
     """
@@ -112,6 +155,19 @@ async def delete_comment(
     if comment is None or comment.user_id != user_id:
         return False
 
-    comment.deleted_at = datetime.now(timezone.utc)
+    # Soft-delete: replace content with placeholder instead of hard delete
+    comment.content = "[该评论已被删除]"
+
+    # Decrement moment comment_count
+    moment_result = await db.execute(
+        select(Moment).where(
+            Moment.id == comment.moment_id,
+            Moment.deleted_at.is_(None),
+        )
+    )
+    moment = moment_result.scalars().first()
+    if moment and moment.comment_count > 0:
+        moment.comment_count = Moment.comment_count - 1
+
     await db.commit()
     return True

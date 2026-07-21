@@ -1,2 +1,8 @@
 export { LikeButton } from './LikeButton'
 export { FollowButton } from './FollowButton'
+export { CommentItem } from './CommentItem'
+export type { CommentInfo, CommentItemProps } from './CommentItem'
+export { CommentList } from './CommentList'
+export type { CommentListProps } from './CommentList'
+export { CommentComposer } from './CommentComposer'
+export type { CommentComposerProps } from './CommentComposer'

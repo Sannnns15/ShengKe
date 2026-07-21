@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from app.api.v1.endpoints import auth, users, moments, comments, likes, follows, search, notifications, ai, media, collections
+from app.api.v1.endpoints import auth, users, moments, comments, likes, follows, search, notifications, ai, media, collections, ws
 
 router = APIRouter()
 
@@ -15,3 +15,5 @@ router.include_router(notifications.router, prefix="/notifications", tags=["Noti
 router.include_router(ai.router, prefix="/ai", tags=["AI"])
 router.include_router(media.router, prefix="/media", tags=["Media"])
 router.include_router(collections.router, prefix="/collections", tags=["Collections"])
+# WebSocket — no prefix (path defined on the router itself)
+router.include_router(ws.router, prefix="", tags=["WebSocket"])

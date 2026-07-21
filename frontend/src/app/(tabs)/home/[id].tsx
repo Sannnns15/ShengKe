@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useMemo } from "react"
 import {
   View,
   Text,
@@ -6,54 +6,80 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
-  TextInput,
   KeyboardAvoidingView,
   Platform,
-} from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { useLocalSearchParams, router } from "expo-router";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Ionicons } from "@expo/vector-icons";
-import { getMomentById } from "../../../services/moments";
+} from "react-native"
+import { SafeAreaView } from "react-native-safe-area-context"
+import { useLocalSearchParams, router } from "expo-router"
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import { Ionicons } from "@expo/vector-icons"
+import { getMomentById } from "../../../services/moments"
+import { getComments, deleteComment } from "../../../services/comments"
+import { toggleLike, getLikeStatus } from "../../../services/social"
+import { formatRelativeTime, formatCount } from "../../../utils/format"
 import {
-  getComments,
-  createComment,
-  type CommentItem,
-} from "../../../services/comments";
-import { toggleLike, getLikeStatus } from "../../../services/social";
-import { formatRelativeTime, formatCount } from "../../../utils/format";
-import { Colors, Spacing, FontSize, FontWeight, Radius, Shadows, LineHeight } from "../../../constants/theme";
-import type { MomentDetail } from "../../../types/api";
+  Colors,
+  Spacing,
+  FontSize,
+  FontWeight,
+  Radius,
+  Shadows,
+  LineHeight,
+} from "../../../constants/theme"
+import type { MomentDetail } from "../../../types/api"
+import { CommentList } from "../../../components/social/CommentList"
+import { CommentComposer } from "../../../components/social/CommentComposer"
+import type { CommentInfo } from "../../../components/social/CommentItem"
+import type { CommentItem as CommentItemType } from "../../../services/comments"
+import { useAuthStore } from "../../../stores/authStore"
 
 // ── Helpers ──────────────────────────────────────────────
 function getPrivacyLabel(level: number): string {
   switch (level) {
     case 0:
-      return "仅自己";
+      return "仅自己"
     case 1:
-      return "好友";
+      return "好友"
     case 2:
-      return "互关";
+      return "互关"
     case 3:
-      return "公开";
+      return "公开"
     default:
-      return "未知";
+      return "未知"
   }
 }
 
 function getInitial(name: string): string {
-  return name?.charAt(0)?.toUpperCase() || "?";
+  return name?.charAt(0)?.toUpperCase() || "?"
+}
+
+function adaptCommentItem(c: CommentItemType): CommentInfo {
+  return {
+    id: c.id,
+    user_id: c.user_id,
+    author_nickname: c.nickname,
+    author_avatar_url: c.avatar_url,
+    content: c.content,
+    like_count: c.like_count,
+    created_at: c.created_at,
+    // Backend doesn't currently nest replies in list — set empty for now
+    replies: [],
+  }
 }
 
 // ── Moment Detail Screen ─────────────────────────────────
 export default function MomentDetailScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
-  const queryClient = useQueryClient();
+  const { id } = useLocalSearchParams<{ id: string }>()
+  const queryClient = useQueryClient()
+  const currentUser = useAuthStore((s) => s.user)
 
-  // ── Comment input state ──
-  const [commentText, setCommentText] = useState("");
-  const [commentsPage, setCommentsPage] = useState(1);
-  const [allComments, setAllComments] = useState<CommentItem[]>([]);
+  // ── Comment state ──
+  const [commentsPage, setCommentsPage] = useState(1)
+  const [allComments, setAllComments] = useState<CommentItemType[]>([])
+  const [replyTo, setReplyTo] = useState<{
+    commentId: string
+    nickname: string
+  } | null>(null)
 
   // ── Moment Query ──
   const {
@@ -65,7 +91,7 @@ export default function MomentDetailScreen() {
     queryKey: ["moment", id],
     queryFn: () => getMomentById(id!),
     enabled: !!id,
-  });
+  })
 
   // ── Comments Query ──
   const {
@@ -76,75 +102,130 @@ export default function MomentDetailScreen() {
     queryKey: ["comments", id, commentsPage],
     queryFn: () => getComments(id!, commentsPage),
     enabled: !!id,
-  });
+  })
 
   // Accumulate comments across pages
   React.useEffect(() => {
     if (commentsData) {
       if (commentsPage === 1) {
-        setAllComments(commentsData.items);
+        setAllComments(commentsData.items)
       } else {
-        setAllComments((prev) => [...prev, ...commentsData.items]);
+        setAllComments((prev) => [...prev, ...commentsData.items])
       }
     }
-  }, [commentsData, commentsPage]);
+  }, [commentsData, commentsPage])
 
   // ── Like Status Query ──
-  const {
-    data: likeStatus,
-    isLoading: likeLoading,
-  } = useQuery({
+  const { data: likeStatus } = useQuery({
     queryKey: ["likeStatus", "moment", id],
     queryFn: () => getLikeStatus("moment", id!),
     enabled: !!id,
-  });
+  })
 
   // ── Toggle Like Mutation ──
   const toggleLikeMutation = useMutation({
     mutationFn: () => toggleLike("moment", id!),
     onSuccess: (result) => {
-      // Update both like status cache and moment detail cache
-      queryClient.setQueryData(["likeStatus", "moment", id], result);
-      queryClient.invalidateQueries({ queryKey: ["moment", id] });
+      queryClient.setQueryData(["likeStatus", "moment", id], result)
+      queryClient.invalidateQueries({ queryKey: ["moment", id] })
     },
-  });
+  })
 
-  // ── Create Comment Mutation ──
+  // ── Create Comment Mutation (via CommentComposer) ──
   const createCommentMutation = useMutation({
-    mutationFn: (content: string) => createComment(id!, content),
+    mutationFn: (content: string) =>
+      import("../../../services/comments").then((m) =>
+        m.createComment(id!, content, replyTo?.commentId ?? undefined)
+      ),
     onSuccess: () => {
-      setCommentText("");
-      setCommentsPage(1);
-      queryClient.invalidateQueries({ queryKey: ["comments", id] });
-      queryClient.invalidateQueries({ queryKey: ["moment", id] });
+      setReplyTo(null)
+      setCommentsPage(1)
+      queryClient.invalidateQueries({ queryKey: ["comments", id] })
+      queryClient.invalidateQueries({ queryKey: ["moment", id] })
     },
-    onError: (err: Error) => {
-      // Error is displayed below; we keep the comment text so user can retry
+  })
+
+  // ── Delete Comment Mutation ──
+  const deleteCommentMutation = useMutation({
+    mutationFn: (commentId: string) => deleteComment(commentId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["comments", id] })
+      queryClient.invalidateQueries({ queryKey: ["moment", id] })
     },
-  });
+  })
 
   // ── Handlers ──
-  const handleSendComment = useCallback(() => {
-    const trimmed = commentText.trim();
-    if (!trimmed) return;
-    createCommentMutation.mutate(trimmed);
-  }, [commentText, createCommentMutation]);
-
   const handleToggleLike = useCallback(() => {
-    if (toggleLikeMutation.isPending) return;
-    toggleLikeMutation.mutate();
-  }, [toggleLikeMutation]);
+    if (toggleLikeMutation.isPending) return
+    toggleLikeMutation.mutate()
+  }, [toggleLikeMutation])
 
-  const sortedComments = React.useMemo(() => {
+  const handleSubmitComment = useCallback(
+    (content: string) => {
+      createCommentMutation.mutate(content)
+    },
+    [createCommentMutation]
+  )
+
+  const handleReply = useCallback(
+    (commentId: string, nickname: string) => {
+      setReplyTo({ commentId, nickname })
+    },
+    []
+  )
+
+  const handleCancelReply = useCallback(() => {
+    setReplyTo(null)
+  }, [])
+
+  const handleLikeToggle = useCallback(
+    (_commentId: string) => {
+      // Comment-level like is future feature — no-op for now
+    },
+    []
+  )
+
+  const handleDeleteComment = useCallback(
+    (commentId: string) => {
+      deleteCommentMutation.mutate(commentId)
+    },
+    [deleteCommentMutation]
+  )
+
+  const handleLoadMore = useCallback(() => {
+    if (commentsData?.meta) {
+      const { page, total, page_size } = commentsData.meta
+      if (page * page_size < total) {
+        setCommentsPage((p) => p + 1)
+      }
+    }
+  }, [commentsData])
+
+  const hasMore = useMemo(() => {
+    if (!commentsData?.meta) return false
+    const { page, total, page_size } = commentsData.meta
+    return page * page_size < total
+  }, [commentsData])
+
+  const sortedComments = useMemo(() => {
     return [...allComments].sort(
       (a, b) =>
         new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-    );
-  }, [allComments]);
+    )
+  }, [allComments])
+
+  const adaptedComments = useMemo(
+    () => sortedComments.map(adaptCommentItem),
+    [sortedComments]
+  )
+
+  const currentUserId = currentUser?.id ?? ""
 
   const currentLikeCount =
-    likeStatus?.like_count ?? moment?.like_count ?? 0;
-  const isLiked = likeStatus?.liked ?? false;
+    (likeStatus as { like_count?: number })?.like_count ??
+    moment?.like_count ??
+    0
+  const isLiked = (likeStatus as { liked?: boolean })?.liked ?? false
 
   // ── Loading State ──
   if (isLoading) {
@@ -152,7 +233,7 @@ export default function MomentDetailScreen() {
       <SafeAreaView style={styles.loadingContainer} edges={["top"]}>
         <ActivityIndicator size="large" color={Colors.primary} />
       </SafeAreaView>
-    );
+    )
   }
 
   // ── Error State ──
@@ -169,8 +250,10 @@ export default function MomentDetailScreen() {
           <Text style={styles.backButtonInlineText}>返回</Text>
         </TouchableOpacity>
       </SafeAreaView>
-    );
+    )
   }
+
+  const isOwnMoment = moment.user_id === currentUserId
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
@@ -251,63 +334,49 @@ export default function MomentDetailScreen() {
           {moment.ai_summary && (
             <View style={styles.aiSection}>
               <View style={styles.aiSectionTitleRow}>
-                <Ionicons name="sparkles" size={16} color={Colors.textAccent} />
-                <Text style={styles.aiSectionTitle}> AI 摘要</Text>
+                <Ionicons
+                  name="sparkles"
+                  size={16}
+                  color={Colors.textAccent}
+                  style={{ marginRight: 6 }}
+                />
+                <Text style={styles.aiSectionTitle}>AI 总结</Text>
               </View>
               <Text style={styles.aiSummaryText}>{moment.ai_summary}</Text>
             </View>
           )}
 
-          {/* ── AI Tags ── */}
+          {/* ── AI tags ── */}
           {moment.ai_tags && moment.ai_tags.length > 0 && (
             <View style={styles.aiSection}>
               <View style={styles.aiSectionTitleRow}>
-                <Ionicons name="pricetags-outline" size={16} color={Colors.textAccent} />
-                <Text style={styles.aiSectionTitle}> 标签</Text>
+                <Ionicons
+                  name="pricetags-outline"
+                  size={14}
+                  color={Colors.textAccent}
+                  style={{ marginRight: 6 }}
+                />
+                <Text style={styles.aiSectionTitle}>标签</Text>
               </View>
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
                 style={styles.aiTagsScroll}
               >
-                {moment.ai_tags.map((tag) => (
+                {moment.ai_tags.map((tag: string) => (
                   <View key={tag} style={styles.aiTagChip}>
-                    <Text style={styles.aiTagChipText}>{tag}</Text>
+                    <Text style={styles.aiTagChipText}>#{tag}</Text>
                   </View>
                 ))}
               </ScrollView>
             </View>
           )}
 
-          {/* ── AI Emotion ── */}
+          {/* ── Emotion ── */}
           {moment.ai_emotion && (
-            <View style={styles.aiSection}>
-              <View style={styles.aiSectionTitleRow}>
-                <Ionicons name="happy-outline" size={16} color={Colors.textAccent} />
-                <Text style={styles.aiSectionTitle}> 情绪分析</Text>
-              </View>
-              <View style={styles.emotionRow}>
-                <View
-                  style={[
-                    styles.emotionBadge,
-                    {
-                      backgroundColor:
-                        moment.ai_emotion === "positive"
-                          ? Colors.moodHappy
-                          : moment.ai_emotion === "negative"
-                          ? Colors.moodSad
-                          : Colors.moodCalm,
-                    },
-                  ]}
-                >
-                  <Text style={styles.emotionText}>
-                    {moment.ai_emotion === "positive"
-                      ? "😊 正面"
-                      : moment.ai_emotion === "negative"
-                      ? "😢 负面"
-                      : "😐 中性"}
-                  </Text>
-                </View>
+            <View style={styles.emotionRow}>
+              <View style={styles.emotionBadge}>
+                <Text style={styles.emotionText}>{moment.ai_emotion}</Text>
               </View>
             </View>
           )}
@@ -315,123 +384,93 @@ export default function MomentDetailScreen() {
           {/* ── Stats Row ── */}
           <View style={styles.statsRow}>
             <View style={styles.stat}>
-              <Ionicons name="heart-outline" size={16} color={Colors.textTertiary} />
-              <Text style={styles.statLabel}>{formatCount(currentLikeCount)}</Text>
-            </View>
-            <View style={styles.stat}>
-              <Ionicons name="chatbubble-outline" size={16} color={Colors.textTertiary} />
+              <Ionicons
+                name="heart-outline"
+                size={14}
+                color={Colors.textTertiary}
+              />
               <Text style={styles.statLabel}>
-                {formatCount(moment.comment_count || sortedComments.length)}
+                {formatCount(moment.like_count)}
               </Text>
             </View>
             <View style={styles.stat}>
-              <Ionicons name="eye-outline" size={16} color={Colors.textTertiary} />
+              <Ionicons
+                name="chatbubble-outline"
+                size={14}
+                color={Colors.textTertiary}
+              />
               <Text style={styles.statLabel}>
-                {formatCount(moment.view_count)}
+                {formatCount(moment.comment_count)}
               </Text>
             </View>
           </View>
 
-          {/* ── Like Button (real API) ── */}
+          {/* ── Like Button ── */}
           <TouchableOpacity
             style={[
               styles.likeButton,
               isLiked && styles.likeButtonActive,
             ]}
-            activeOpacity={0.7}
             onPress={handleToggleLike}
-            disabled={likeLoading || toggleLikeMutation.isPending}
+            disabled={toggleLikeMutation.isPending}
+            activeOpacity={0.7}
           >
-            <Ionicons
-              name={isLiked ? "heart" : "heart-outline"}
-              size={20}
-              color={isLiked ? Colors.error : Colors.textSecondary}
-            />
-            <Text
-              style={[
-                styles.likeButtonText,
-                isLiked && styles.likeButtonTextActive,
-              ]}
-            >
-              {isLiked ? "已赞" : "点赞"}
-              {currentLikeCount > 0 ? ` ${currentLikeCount}` : ""}
-            </Text>
-          </TouchableOpacity>
-
-          {/* ── Divider ── */}
-          <View style={styles.divider} />
-
-          {/* ── Comments Section ── */}
-          <Text style={styles.commentsHeader}>
-            评论 {sortedComments.length > 0 ? `(${sortedComments.length})` : ""}
-          </Text>
-
-          {commentsLoading && commentsPage === 1 ? (
-            <ActivityIndicator
-              size="small"
-              color={Colors.primary}
-              style={styles.commentsLoader}
-            />
-          ) : sortedComments.length === 0 ? (
-            <Text style={styles.noComments}>暂无评论，来说点什么吧</Text>
-          ) : (
-            sortedComments.map((comment) => (
-              <View key={comment.id} style={styles.commentItem}>
-                <View style={styles.commentAvatar}>
-                  <Text style={styles.commentAvatarText}>
-                    {getInitial(comment.nickname)}
-                  </Text>
-                </View>
-                <View style={styles.commentBody}>
-                  <View style={styles.commentHeader}>
-                    <Text style={styles.commentNickname}>
-                      {comment.nickname}
-                    </Text>
-                    <Text style={styles.commentTime}>
-                      {formatRelativeTime(comment.created_at)}
-                    </Text>
-                  </View>
-                  <Text style={styles.commentContent}>{comment.content}</Text>
-                </View>
-              </View>
-            ))
-          )}
-        </ScrollView>
-
-        {/* ── Comment Input Bar ── */}
-        <View style={styles.commentInputBar}>
-          <TextInput
-            style={styles.commentInput}
-            placeholder="写评论..."
-            placeholderTextColor={Colors.textTertiary}
-            value={commentText}
-            onChangeText={setCommentText}
-            multiline
-            maxLength={500}
-          />
-          <TouchableOpacity
-            style={[
-              styles.sendButton,
-              !commentText.trim() && styles.sendButtonDisabled,
-            ]}
-            onPress={handleSendComment}
-            disabled={!commentText.trim() || createCommentMutation.isPending}
-          >
-            {createCommentMutation.isPending ? (
-              <ActivityIndicator size="small" color={Colors.textInverse} />
+            {toggleLikeMutation.isPending ? (
+              <ActivityIndicator size="small" color={Colors.error} />
             ) : (
-              <Ionicons name="send" size={18} color={Colors.textInverse} />
+              <>
+                <Ionicons
+                  name={isLiked ? "heart" : "heart-outline"}
+                  size={20}
+                  color={isLiked ? Colors.error : Colors.textTertiary}
+                />
+                <Text
+                  style={[
+                    styles.likeButtonText,
+                    isLiked && { color: Colors.error },
+                  ]}
+                >
+                  {isLiked ? "已喜欢" : "喜欢"}
+                  {currentLikeCount > 0 && ` · ${currentLikeCount}`}
+                </Text>
+              </>
             )}
           </TouchableOpacity>
-        </View>
+
+          {/* ── Comments Section ── */}
+          <View style={styles.commentsSection}>
+            <Text style={styles.commentsSectionTitle}>
+              评论 {moment.comment_count > 0 && `(${moment.comment_count})`}
+            </Text>
+
+            <CommentList
+              comments={adaptedComments}
+              onReply={handleReply}
+              onLikeToggle={handleLikeToggle}
+              onDelete={handleDeleteComment}
+              currentUserId={currentUserId}
+              isLoading={commentsLoading}
+              onLoadMore={hasMore ? handleLoadMore : undefined}
+              hasMore={hasMore}
+            />
+          </View>
+        </ScrollView>
+
+        {/* ── Comment Composer ── */}
+        <CommentComposer
+          onSubmit={handleSubmitComment}
+          replyTo={replyTo}
+          onCancelReply={handleCancelReply}
+          isLoading={createCommentMutation.isPending}
+        />
         {createCommentMutation.isError && (
           <Text style={styles.commentError}>
-            {createCommentMutation.error?.message || "发送失败"}
+            {(createCommentMutation.error as Error)?.message || "发送失败"}
           </Text>
         )}
       </KeyboardAvoidingView>
     </SafeAreaView>
-  );
+  )
 }
 
 // ── Styles ───────────────────────────────────────────────
@@ -666,116 +705,22 @@ const styles = StyleSheet.create({
   },
   likeButtonText: {
     fontSize: FontSize.body,
-    color: Colors.textSecondary,
-    fontWeight: FontWeight.semibold,
-  },
-  likeButtonTextActive: {
-    color: Colors.error,
-  },
-
-  // ── Divider ──
-  divider: {
-    height: 0.5,
-    backgroundColor: Colors.divider,
-    marginVertical: Spacing.md,
-  },
-
-  // ── Comments ──
-  commentsHeader: {
-    fontSize: FontSize.heading3,
-    fontWeight: FontWeight.bold,
-    color: Colors.textPrimary,
-    marginBottom: Spacing.md,
-  },
-  commentsLoader: {
-    paddingVertical: Spacing.lg,
-  },
-  noComments: {
-    fontSize: FontSize.small,
     color: Colors.textTertiary,
-    textAlign: "center",
-    paddingVertical: Spacing.lg,
+    fontWeight: FontWeight.medium,
   },
-  commentItem: {
-    flexDirection: "row",
-    gap: Spacing.sm,
-    marginBottom: Spacing.md,
-    backgroundColor: Colors.bgCard,
-    borderRadius: Radius.lg,
-    padding: Spacing.md,
-    ...Shadows.sm,
+
+  // ── Comments Section ──
+  commentsSection: {
+    marginTop: Spacing.lg,
   },
-  commentAvatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: Colors.primaryLight + "40",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  commentAvatarText: {
-    fontSize: FontSize.small,
-    fontWeight: FontWeight.bold,
-    color: Colors.primary,
-  },
-  commentBody: {
-    flex: 1,
-  },
-  commentHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 2,
-  },
-  commentNickname: {
-    fontSize: FontSize.small,
+  commentsSectionTitle: {
+    fontSize: FontSize.body,
     fontWeight: FontWeight.semibold,
     color: Colors.textPrimary,
-  },
-  commentTime: {
-    fontSize: FontSize.caption,
-    color: Colors.textTertiary,
-  },
-  commentContent: {
-    fontSize: FontSize.small,
-    color: Colors.textSecondary,
-    lineHeight: FontSize.small * LineHeight.relaxed,
+    marginBottom: Spacing.sm,
   },
 
-  // ── Comment Input Bar ──
-  commentInputBar: {
-    flexDirection: "row",
-    alignItems: "flex-end",
-    gap: Spacing.sm,
-    paddingHorizontal: Spacing.page,
-    paddingVertical: Spacing.sm,
-    backgroundColor: Colors.bgCard,
-    borderTopWidth: 0.5,
-    borderTopColor: Colors.divider,
-  },
-  commentInput: {
-    flex: 1,
-    fontSize: FontSize.small,
-    color: Colors.textPrimary,
-    backgroundColor: Colors.bg,
-    borderRadius: Radius.lg,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-    maxHeight: 80,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  sendButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: Colors.primary,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  sendButtonDisabled: {
-    opacity: 0.5,
-  },
+  // ── Comment Error ──
   commentError: {
     fontSize: FontSize.caption,
     color: Colors.error,
@@ -784,4 +729,4 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing.xs,
     backgroundColor: Colors.bgCard,
   },
-});
+})

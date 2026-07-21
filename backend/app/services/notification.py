@@ -6,6 +6,8 @@ from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.notification import Notification
+from app.schemas.notification import NotificationItem
+from app.services.ws_manager import manager
 
 
 async def create_notification(
@@ -17,7 +19,7 @@ async def create_notification(
     target_id: UUID | None = None,
     content: str | None = None,
 ) -> Notification:
-    """Create and persist a new notification."""
+    """Create, persist, and push (via WebSocket) a new notification."""
     notification = Notification(
         user_id=user_id,
         actor_id=actor_id,
@@ -29,6 +31,14 @@ async def create_notification(
     db.add(notification)
     await db.commit()
     await db.refresh(notification)
+
+    # Push notification to the user via WebSocket
+    notification_data = NotificationItem.model_validate(notification).model_dump()
+    await manager.send_to_user(
+        user_id,
+        {"type": "notification", "data": notification_data},
+    )
+
     return notification
 
 

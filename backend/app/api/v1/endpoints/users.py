@@ -12,6 +12,7 @@ from app.schemas.user_profile import (
     UserProfileResponse,
     UpdateProfileRequest,
 )
+from app.schemas.user_settings import UserSettingsResponse, UpdateUserSettingsRequest
 from app.services.user import (
     get_own_profile,
     get_user_profile,
@@ -19,6 +20,7 @@ from app.services.user import (
     delete_user,
     get_user_moments,
 )
+from app.services.user_settings import get_user_settings, update_user_settings
 
 router = APIRouter()
 
@@ -86,6 +88,31 @@ async def delete_me(
     if not ok:
         return Result(code=1404, message="注销失败或用户不存在")
     return Result(code=0, message="success")
+
+
+@router.get("/me/settings", response_model=Result[UserSettingsResponse])
+async def get_my_settings(
+    db: AsyncSession = Depends(get_db),
+    user_id: UUID = Depends(get_current_user_id),
+):
+    """Get the current user's settings."""
+    settings = await get_user_settings(db, user_id)
+    if settings is None:
+        return Result(code=1404, message="用户不存在", data=None)
+    return Result(code=0, message="success", data=settings)
+
+
+@router.patch("/me/settings", response_model=Result[UserSettingsResponse])
+async def update_my_settings(
+    body: UpdateUserSettingsRequest,
+    db: AsyncSession = Depends(get_db),
+    user_id: UUID = Depends(get_current_user_id),
+):
+    """Update the current user's settings (partial update)."""
+    settings = await update_user_settings(db, user_id, body)
+    if settings is None:
+        return Result(code=1404, message="用户不存在", data=None)
+    return Result(code=0, message="success", data=settings)
 
 
 @router.get("/{user_id}/moments", response_model=PaginatedResult[FeedItem])
