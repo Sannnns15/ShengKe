@@ -5,8 +5,6 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import joinedload
-
 from app.core.deps import get_db, get_current_user_id
 from app.schemas.common import Result, PaginatedResult, PaginationMeta
 from app.schemas.follow import FollowItem
@@ -52,22 +50,48 @@ async def _load_follow_items(
     db: AsyncSession,
     follows: list[Follow],
     is_follower_list: bool,
+    *,
+    current_user_id: UUID,
 ) -> list[dict]:
-    """Load Follow records with associated user info."""
+    """Load Follow records with associated user info and follow status."""
+    user_ids = [
+        (f.follower_id if is_follower_list else f.following_id) for f in follows
+    ]
+
+    # Load user info batch
+    user_rows = {}
+    if user_ids:
+        result = await db.execute(
+            select(User).where(
+                User.id.in_(user_ids), User.deleted_at.is_(None)
+            )
+        )
+        for u in result.scalars().all():
+            user_rows[u.id] = u
+
+    # Load follow status batch (whether current_user_id follows each user_id)
+    following_set: set[UUID] = set()
+    if current_user_id and user_ids:
+        result = await db.execute(
+            select(Follow.following_id).where(
+                Follow.follower_id == current_user_id,
+                Follow.following_id.in_(user_ids),
+                Follow.deleted_at.is_(None),
+            )
+        )
+        following_set = {row[0] for row in result.all()}
+
     items = []
     for f in follows:
-        user_id = f.follower_id if is_follower_list else f.following_id
-        # Load user info
-        result = await db.execute(
-            select(User).where(User.id == user_id, User.deleted_at.is_(None))
-        )
-        user = result.scalars().first()
+        target_id = f.follower_id if is_follower_list else f.following_id
+        user = user_rows.get(target_id)
         items.append(
             {
                 "follow_id": f.id,
-                "user_id": user_id,
+                "user_id": target_id,
                 "nickname": user.nickname if user else None,
                 "avatar_url": user.avatar_url if user else None,
+                "is_following": target_id in following_set,
                 "created_at": f.created_at,
             }
         )
@@ -84,7 +108,9 @@ async def get_followers_endpoint(
 ):
     """Get paginated list of followers for a user."""
     follows, total = await get_followers(db, user_id, page, page_size)
-    items = await _load_follow_items(db, follows, is_follower_list=True)
+    items = await _load_follow_items(
+        db, follows, is_follower_list=True, current_user_id=current_user_id,
+    )
     return PaginatedResult(
         code=0,
         message="success",
@@ -103,7 +129,9 @@ async def get_following_endpoint(
 ):
     """Get paginated list of users that a user is following."""
     follows, total = await get_following(db, user_id, page, page_size)
-    items = await _load_follow_items(db, follows, is_follower_list=False)
+    items = await _load_follow_items(
+        db, follows, is_follower_list=False, current_user_id=current_user_id,
+    )
     return PaginatedResult(
         code=0,
         message="success",

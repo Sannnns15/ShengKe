@@ -13,30 +13,11 @@ import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useMomentFeed } from "../../../hooks/useMomentFeed";
 import { useLikeToggle } from "../../../hooks/useLikeToggle";
-import { formatRelativeTime } from "../../../utils/format";
 import { useQueryClient } from "@tanstack/react-query";
+import { MomentCard } from "../../../components/MomentCard";
 
 import { Colors, Spacing, FontSize, FontWeight, Radius } from "../../../constants/theme";
 import type { MomentFeedItem } from "../../../types/api";
-
-function getPrivacyLabel(level: number): string {
-  switch (level) {
-    case 0:
-      return "仅自己";
-    case 1:
-      return "好友";
-    case 2:
-      return "互关";
-    case 3:
-      return "公开";
-    default:
-      return "";
-  }
-}
-
-function getInitial(name: string): string {
-  return name?.charAt(0)?.toUpperCase() || "?";
-}
 
 // ── Sort Toggle ─────────────────────────────────────────
 function SortToggle({
@@ -87,133 +68,6 @@ function SortToggle({
         </Text>
       </TouchableOpacity>
     </View>
-  );
-}
-
-// ── MomentCard ─────────────────────────────────────────
-function MomentCard({
-  item,
-  onPress,
-  onLikeToggle,
-  likePending,
-}: {
-  item: MomentFeedItem;
-  onPress: () => void;
-  onLikeToggle: () => void;
-  likePending: boolean;
-}) {
-  // Truncate content to ~2 lines (~80 chars)
-  const truncatedContent =
-    item.content && item.content.length > 80
-      ? item.content.slice(0, 80) + "…"
-      : item.content;
-
-  const displayName = item.author_nickname || "用户";
-  const avatarChar = getInitial(displayName);
-
-  return (
-    <TouchableOpacity
-      style={styles.card}
-      activeOpacity={0.7}
-      onPress={onPress}
-    >
-      {/* ── Author Row ── */}
-      <View style={styles.authorRow}>
-        <View style={styles.authorLeft}>
-          {item.author_avatar_url ? (
-            <View style={styles.avatarCircle}>
-              <Text style={styles.avatarText}>{avatarChar}</Text>
-            </View>
-          ) : (
-            <Ionicons name="person-circle" size={32} color={Colors.textTertiary} />
-          )}
-          <Text style={styles.authorNickname} numberOfLines={1}>
-            {displayName}
-          </Text>
-        </View>
-        <Text style={styles.time}>
-          {formatRelativeTime(item.created_at)}
-        </Text>
-      </View>
-
-      {/* ── Mood + Privacy Header ── */}
-      <View style={styles.cardHeader}>
-        <View style={styles.cardHeaderLeft}>
-          {item.mood && <Text style={styles.mood}>{item.mood}</Text>}
-        </View>
-        <View style={styles.privacyBadge}>
-          <Ionicons
-            name={
-              item.privacy_level >= 3 ? "globe-outline" : "lock-closed"
-            }
-            size={11}
-            color={Colors.textTertiary}
-          />
-          <Text style={styles.privacyText}>
-            {getPrivacyLabel(item.privacy_level)}
-          </Text>
-        </View>
-      </View>
-
-      {/* Title */}
-      {item.title && (
-        <Text style={styles.cardTitle} numberOfLines={1}>
-          {item.title}
-        </Text>
-      )}
-
-      {/* Content */}
-      {truncatedContent && (
-        <Text style={styles.content} numberOfLines={2}>
-          {truncatedContent}
-        </Text>
-      )}
-
-      {/* AI Tags */}
-      {item.ai_tags && item.ai_tags.length > 0 && (
-        <View style={styles.tagsRow}>
-          {item.ai_tags.map((tag) => (
-            <View key={tag} style={styles.tag}>
-              <Text style={styles.tagText}>{tag}</Text>
-            </View>
-          ))}
-        </View>
-      )}
-
-      {/* Stats + Like */}
-      <View style={styles.cardFooter}>
-        {/* Like button */}
-        <TouchableOpacity
-          style={styles.stat}
-          onPress={onLikeToggle}
-          disabled={likePending}
-          activeOpacity={0.6}
-        >
-          <Ionicons
-            name={item.is_liked ? "heart" : "heart-outline"}
-            size={14}
-            color={item.is_liked ? Colors.error : Colors.textTertiary}
-          />
-          <Text
-            style={[
-              styles.statText,
-              item.is_liked && { color: Colors.error },
-            ]}
-          >
-            {item.like_count}
-          </Text>
-        </TouchableOpacity>
-
-        <View style={styles.stat}>
-          <Ionicons
-            name="chatbubble-outline"
-            size={14}
-            color={Colors.textTertiary}
-          />
-          <Text style={styles.statText}>{item.comment_count}</Text>
-        </View>
-      </View>
-    </TouchableOpacity>
   );
 }
 
@@ -316,6 +170,13 @@ export default function HomeFeedScreen() {
     [likeToggle, sort, queryClient]
   );
 
+  const handleAuthorPress = useCallback(
+    (userId: string) => {
+      router.push(`/(tabs)/profile/${userId}`);
+    },
+    [router]
+  );
+
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       {/* ── Header ── */}
@@ -362,6 +223,7 @@ export default function HomeFeedScreen() {
               item={item}
               onPress={() => router.push(`/(tabs)/home/${item.id}`)}
               onLikeToggle={() => handleLikeToggle(item)}
+              onAuthorPress={() => handleAuthorPress(item.user_id)}
               likePending={likeToggle.isPending}
             />
           )}
@@ -475,125 +337,6 @@ const styles = StyleSheet.create({
   },
   footerLoaderText: {
     fontSize: FontSize.small,
-    color: Colors.textTertiary,
-  },
-
-  // ── Card ──
-  card: {
-    backgroundColor: Colors.bgCard,
-    borderRadius: Radius.lg,
-    padding: Spacing.md,
-    shadowColor: Colors.textPrimary,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-
-  // ── Author Row ──
-  authorRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: Spacing.sm,
-  },
-  authorLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.sm,
-    flex: 1,
-  },
-  avatarCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: Colors.primaryLight + "40",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  avatarText: {
-    fontSize: FontSize.caption,
-    fontWeight: FontWeight.bold,
-    color: Colors.primary,
-  },
-  authorNickname: {
-    fontSize: FontSize.small,
-    fontWeight: FontWeight.semibold,
-    color: Colors.textPrimary,
-    flexShrink: 1,
-  },
-
-  // ── Card Header (mood + privacy) ──
-  cardHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: Spacing.sm,
-  },
-  cardHeaderLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.sm,
-  },
-  mood: {
-    fontSize: 18,
-  },
-  time: {
-    fontSize: FontSize.caption,
-    color: Colors.textTertiary,
-  },
-  privacyBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 3,
-    backgroundColor: Colors.borderLight,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: Radius.sm,
-  },
-  privacyText: {
-    fontSize: 10,
-    color: Colors.textTertiary,
-  },
-  cardTitle: {
-    fontSize: FontSize.bodyLarge,
-    fontWeight: FontWeight.semibold,
-    color: Colors.textPrimary,
-    marginBottom: 4,
-  },
-  content: {
-    fontSize: FontSize.body,
-    color: Colors.textSecondary,
-    lineHeight: 22,
-    marginBottom: Spacing.sm,
-  },
-  tagsRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: Spacing.sm,
-    marginBottom: Spacing.sm,
-  },
-  tag: {
-    backgroundColor: Colors.primaryLight + "20",
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 2,
-    borderRadius: Radius.full,
-  },
-  tagText: {
-    fontSize: FontSize.caption,
-    color: Colors.primary,
-  },
-  cardFooter: {
-    flexDirection: "row",
-    gap: Spacing.md,
-  },
-  stat: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 3,
-  },
-  statText: {
-    fontSize: FontSize.caption,
     color: Colors.textTertiary,
   },
 });

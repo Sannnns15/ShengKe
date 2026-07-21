@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -18,6 +19,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Ionicons } from "@expo/vector-icons";
 import * as SecureStore from "expo-secure-store";
 import { getMyProfile, updateMyProfile, deleteAccount } from "../../../services/users";
+import { uploadMedia } from "../../../services/media";
+import { useImagePicker } from "../../../hooks/useImagePicker";
 import { Colors, Spacing, FontSize, FontWeight, Radius } from "../../../constants/theme";
 import { useAuthStore } from "../../../stores/authStore";
 
@@ -54,6 +57,10 @@ export default function SettingsScreen() {
     });
   }, []);
 
+  // ── Image picker ──
+  const imagePicker = useImagePicker();
+  const [avatarUploading, setAvatarUploading] = useState(false);
+
   // ── Save profile mutation ──
   const saveProfileMutation = useMutation({
     mutationFn: (data: { nickname: string; bio: string }) =>
@@ -66,6 +73,41 @@ export default function SettingsScreen() {
       Alert.alert("保存失败", err.message || "请稍后重试");
     },
   });
+
+  // ── Avatar upload mutation ──
+  const handleAvatarChange = useCallback(async () => {
+    Alert.alert("更换头像", "请选择操作", [
+      {
+        text: "拍照",
+        onPress: async () => {
+          const uri = await imagePicker.pickFromCamera();
+          if (uri) await uploadNewAvatar(uri);
+        },
+      },
+      {
+        text: "从相册选择",
+        onPress: async () => {
+          const uri = await imagePicker.pickFromGallery();
+          if (uri) await uploadNewAvatar(uri);
+        },
+      },
+      { text: "取消", style: "cancel" },
+    ]);
+  }, [imagePicker]);
+
+  const uploadNewAvatar = useCallback(async (uri: string) => {
+    setAvatarUploading(true);
+    try {
+      const media = await uploadMedia(uri);
+      await updateMyProfile({ avatar_url: media.url });
+      queryClient.invalidateQueries({ queryKey: ["myProfile"] });
+      Alert.alert("成功", "头像已更新");
+    } catch (err: any) {
+      Alert.alert("上传失败", err?.message || "请稍后重试");
+    } finally {
+      setAvatarUploading(false);
+    }
+  }, [queryClient]);
 
   // ── Delete account mutation ──
   const deleteAccountMutation = useMutation({
@@ -157,6 +199,40 @@ export default function SettingsScreen() {
           {/* ══ Section: 个人资料 ══ */}
           <Text style={styles.sectionTitle}>个人资料</Text>
           <View style={styles.card}>
+            {/* ── Avatar Preview ── */}
+            <View style={styles.avatarSection}>
+              <TouchableOpacity
+                onPress={handleAvatarChange}
+                disabled={avatarUploading}
+                activeOpacity={0.7}
+              >
+                {avatarUploading ? (
+                  <View style={[styles.avatarPreview, styles.avatarLoading]}>
+                    <ActivityIndicator size="small" color={Colors.primary} />
+                  </View>
+                ) : profile?.avatar_url ? (
+                  <Image
+                    source={{ uri: profile.avatar_url }}
+                    style={styles.avatarPreview}
+                  />
+                ) : (
+                  <View style={styles.avatarPreview}>
+                    <Ionicons name="person" size={32} color={Colors.textTertiary} />
+                  </View>
+                )}
+                <View style={styles.cameraIcon}>
+                  <Ionicons name="camera" size={14} color={Colors.textInverse} />
+                </View>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={handleAvatarChange} disabled={avatarUploading}>
+                <Text style={styles.changeAvatarText}>
+                  {avatarUploading ? "上传中…" : "更换头像"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.divider} />
+
             <View style={styles.fieldGroup}>
               <Text style={styles.fieldLabel}>昵称</Text>
               <TextInput
@@ -322,6 +398,42 @@ const styles = StyleSheet.create({
     borderRadius: Radius.md,
     marginHorizontal: Spacing.md,
     padding: Spacing.md,
+  },
+
+  // ── Avatar ──
+  avatarSection: {
+    alignItems: "center",
+    paddingVertical: Spacing.md,
+  },
+  avatarPreview: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: Colors.bgTertiary,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: Spacing.sm,
+  },
+  avatarLoading: {
+    opacity: 0.6,
+  },
+  cameraIcon: {
+    position: "absolute",
+    bottom: 4,
+    right: -2,
+    backgroundColor: Colors.primary,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: Colors.bgCard,
+  },
+  changeAvatarText: {
+    fontSize: FontSize.small,
+    color: Colors.textAccent,
+    fontWeight: FontWeight.medium,
   },
 
   // ── Fields ──

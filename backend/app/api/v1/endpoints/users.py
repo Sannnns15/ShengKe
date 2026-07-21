@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_db, get_current_user_id
 from app.schemas.common import Result, PaginatedResult, PaginationMeta
-from app.schemas.moment import MomentListItem
+from app.schemas.moment import FeedItem
 from app.schemas.user_profile import (
     UserProfileResponse,
     UpdateProfileRequest,
@@ -88,7 +88,7 @@ async def delete_me(
     return Result(code=0, message="success")
 
 
-@router.get("/{user_id}/moments", response_model=PaginatedResult[MomentListItem])
+@router.get("/{user_id}/moments", response_model=PaginatedResult[FeedItem])
 async def get_user_moments_route(
     user_id: UUID,
     page: int = Query(default=1, ge=1),
@@ -96,17 +96,16 @@ async def get_user_moments_route(
     db: AsyncSession = Depends(get_db),
     current_user_id: UUID = Depends(get_current_user_id),
 ):
-    """Get a user's moments.
+    """Get a user's moments with author info and like status.
 
     The owner sees all non-deleted moments; other users see only public ones.
     """
-    moments, total = await get_user_moments(
+    items, total = await get_user_moments(
         db, user_id, current_user_id, page, page_size,
     )
-    items = [MomentListItem.model_validate(m) for m in moments]
     return PaginatedResult(
         code=0,
         message="success",
-        data=items,
+        data=[FeedItem(**m) for m in items],
         meta=PaginationMeta(page=page, page_size=page_size, total=total),
     )

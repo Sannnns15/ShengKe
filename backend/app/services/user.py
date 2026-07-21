@@ -12,6 +12,25 @@ from app.models.moment import Moment
 from app.models.user import User
 
 
+async def _get_liked_moment_ids(
+    db: AsyncSession,
+    user_id: UUID,
+    moment_ids: list[UUID],
+) -> set[UUID]:
+    """Return a set of moment IDs that the user has liked."""
+    if not moment_ids:
+        return set()
+    result = await db.execute(
+        select(Like.target_id).where(
+            Like.user_id == user_id,
+            Like.target_type == 1,
+            Like.target_id.in_(moment_ids),
+            Like.deleted_at.is_(None),
+        )
+    )
+    return {row[0] for row in result.all()}
+
+
 async def get_user_profile(
     db: AsyncSession,
     user_id: UUID,
@@ -154,6 +173,15 @@ async def get_own_profile(
     )
     following_count = following_count_result.scalar() or 0
 
+    # Count likes received (sum of like_count on all user's moments)
+    likes_received_result = await db.execute(
+        select(func.coalesce(func.sum(Moment.like_count), 0)).where(
+            Moment.user_id == user_id,
+            Moment.deleted_at.is_(None),
+        )
+    )
+    likes_received_count = likes_received_result.scalar() or 0
+
     return {
         "id": user.id,
         "phone": user.phone,  # unmasked for own profile
@@ -166,6 +194,7 @@ async def get_own_profile(
         "moments_count": moments_count,
         "followers_count": followers_count,
         "following_count": following_count,
+        "likes_received_count": likes_received_count,
     }
 
 
@@ -231,12 +260,11 @@ async def get_user_moments(
     current_user_id: UUID,
     page: int = 1,
     page_size: int = 20,
-) -> tuple[list[Moment], int]:
-    """Get paginated moments for a specific user.
+) -> tuple[list[dict], int]:
+    """Get paginated moments for a specific user with author info and like status.
 
+    Returns (list of FeedItem-compatible dicts, total count).
     Owner sees all non-deleted moments; others see only public ones.
-    This is a convenience wrapper that delegates to the moment service
-    logic inline to avoid circular imports.
     """
     is_owner = current_user_id == user_id
 
@@ -253,18 +281,51 @@ async def get_user_moments(
     total_result = await db.execute(count_query)
     total = total_result.scalar() or 0
 
-    # Fetch page
+    if total == 0:
+        return [], 0
+
+    # Fetch with author join
     query = (
-        select(Moment)
+        select(Moment, User.nickname, User.avatar_url)
+        .join(User, Moment.user_id == User.id)
         .where(*conditions)
         .order_by(Moment.created_at.desc())
         .offset((page - 1) * page_size)
         .limit(page_size)
     )
     result = await db.execute(query)
-    moments = list(result.scalars().all())
+    rows = result.all()
 
-    return moments, total
+    # Fetch liked moment IDs
+    moment_ids = [row.Moment.id for row in rows]
+    liked_moment_ids = await _get_liked_moment_ids(db, current_user_id, moment_ids)
+
+    # Build result dicts
+    items = []
+    for row in rows:
+        moment = row.Moment
+        item = {
+            "id": moment.id,
+            "user_id": moment.user_id,
+            "title": moment.title,
+            "content": moment.content,
+            "mood": moment.mood,
+            "weather": moment.weather,
+            "location_name": moment.location_name,
+            "privacy_level": moment.privacy_level,
+            "is_archived": moment.is_archived,
+            "ai_tags": moment.ai_tags,
+            "comment_count": moment.comment_count,
+            "like_count": moment.like_count,
+            "view_count": moment.view_count,
+            "created_at": moment.created_at,
+            "author_nickname": row.nickname,
+            "author_avatar_url": row.avatar_url,
+            "is_liked": moment.id in liked_moment_ids,
+        }
+        items.append(item)
+
+    return items, total
 
 
 async def search_users(

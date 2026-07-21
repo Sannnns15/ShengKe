@@ -5,6 +5,10 @@ export default function ProfileLayout() {
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="index" />
       <Stack.Screen
+        name="[id]"
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
         name="settings"
         options={{ presentation: "modal", headerShown: false }}
       />

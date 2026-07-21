@@ -11,6 +11,7 @@ class FollowItem(BaseModel):
     user_id: UUID
     nickname: str | None = None
     avatar_url: str | None = None
+    is_following: bool = False
     created_at: datetime
 
     class Config:
