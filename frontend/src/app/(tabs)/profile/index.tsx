@@ -22,6 +22,8 @@ import { useLikeToggle } from "../../../hooks/useLikeToggle";
 import { useImagePicker } from "../../../hooks/useImagePicker";
 import { useFollowToggle } from "../../../hooks/useFollowToggle";
 import { MomentCard } from "../../../components/moment";
+import { GalleryViewer } from "../../../components/media";
+import { useGallery } from "../../../hooks/useGallery";
 import { Colors, Spacing, FontSize, FontWeight, Radius, Shadows } from "../../../constants/theme";
 import type { UserProfile, MomentFeedItem } from "../../../types/api";
 
@@ -49,6 +51,7 @@ export default function ProfileScreen() {
   const queryClient = useQueryClient();
   const imagePicker = useImagePicker();
   const likeToggle = useLikeToggle();
+  const gallery = useGallery();
 
   // Determine if viewing own profile
   const isOwnProfile = !targetUserId || targetUserId === authUser?.id;
@@ -370,6 +373,7 @@ export default function ProfileScreen() {
                 item={item}
                 onPress={() => router.push(`/(tabs)/home/${item.id}`)}
                 onLikeToggle={() => handleLikeToggle(item)}
+                onMediaPress={(images, index) => gallery.open({ images, initialIndex: index })}
                 likePending={likeToggle.isPending}
               />
             </View>
@@ -411,6 +415,16 @@ export default function ProfileScreen() {
             </>
           }
           contentContainerStyle={styles.listContent}
+        />
+      )}
+
+      {/* ── Media Gallery Viewer ── */}
+      {gallery.options && (
+        <GalleryViewer
+          visible={gallery.visible}
+          images={gallery.options.images}
+          initialIndex={gallery.options.initialIndex ?? 0}
+          onClose={gallery.close}
         />
       )}
     </SafeAreaView>

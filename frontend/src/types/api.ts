@@ -60,6 +60,8 @@ export interface MomentFeedItem {
   privacy_level: number;
   is_archived: boolean;
   ai_tags?: string[];
+  media_ids?: string[];
+  media_urls?: string[];
   comment_count: number;
   like_count: number;
   view_count: number;
@@ -75,6 +77,7 @@ export interface MomentDetail extends MomentFeedItem {
   visibility_group?: string[];
   ai_summary?: string;
   ai_emotion?: string;
+  media_urls?: string[];
   updated_at: string;
 }
 

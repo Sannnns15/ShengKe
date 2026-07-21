@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Image,
 } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { useLocalSearchParams, router } from "expo-router"
@@ -28,6 +29,8 @@ import {
 } from "../../../constants/theme"
 import type { MomentDetail } from "../../../types/api"
 import { CommentList } from "../../../components/social/CommentList"
+import { GalleryViewer } from "../../../components/media"
+import { useGallery } from "../../../hooks/useGallery"
 import { CommentComposer } from "../../../components/social/CommentComposer"
 import type { CommentInfo } from "../../../components/social/CommentItem"
 import type { CommentItem as CommentItemType } from "../../../services/comments"
@@ -67,11 +70,63 @@ function adaptCommentItem(c: CommentItemType): CommentInfo {
   }
 }
 
+// ── Extract media URLs from moment ──────────────────────
+function getMediaUrls(moment: MomentDetail): string[] {
+  if (moment.media_urls && moment.media_urls.length > 0) {
+    return moment.media_urls
+  }
+  if (moment.media_ids && moment.media_ids.length > 0) {
+    const ids = moment.media_ids
+    if (ids.length > 0 && ids[0].startsWith('http')) {
+      return ids
+    }
+  }
+  return []
+}
+
 // ── Moment Detail Screen ─────────────────────────────────
 export default function MomentDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>()
   const queryClient = useQueryClient()
   const currentUser = useAuthStore((s) => s.user)
+
+  const gallery = useGallery()
+
+  // ── Render media section ──
+  const renderMedia = useCallback(
+    (m: MomentDetail) => {
+      const urls = getMediaUrls(m)
+      if (!urls.length) return null
+
+      return (
+        <View style={styles.mediaSection}>
+          <View style={styles.mediaGrid}>
+            {urls.slice(0, 4).map((url, idx) => (
+              <TouchableOpacity
+                key={url + idx}
+                activeOpacity={0.8}
+                onPress={() => gallery.open({ images: urls, initialIndex: idx })}
+                style={[
+                  styles.mediaThumb,
+                  urls.length === 1 && styles.mediaThumbSingle,
+                  urls.length === 2 && styles.mediaThumbHalf,
+                  urls.length >= 3 && idx === 0 && styles.mediaThumbWide,
+                ]}
+              >
+                <Image source={{ uri: url }} style={styles.mediaThumbImage} />
+                {idx === 3 && urls.length > 4 && (
+                  <View style={styles.mediaMoreOverlay}>
+                    <Text style={styles.mediaMoreText}>+{urls.length - 4}</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+      )
+    },
+    [gallery]
+  )
 
   // ── Comment state ──
   const [commentsPage, setCommentsPage] = useState(1)
@@ -330,6 +385,9 @@ export default function MomentDetailScreen() {
             </View>
           )}
 
+          {/* ── Media ── */}
+          {renderMedia(moment)}
+
           {/* ── AI Summary ── */}
           {moment.ai_summary && (
             <View style={styles.aiSection}>
@@ -469,6 +527,16 @@ export default function MomentDetailScreen() {
           </Text>
         )}
       </KeyboardAvoidingView>
+
+      {/* ── Media Gallery Viewer ── */}
+      {gallery.options && (
+        <GalleryViewer
+          visible={gallery.visible}
+          images={gallery.options.images}
+          initialIndex={gallery.options.initialIndex ?? 0}
+          onClose={gallery.close}
+        />
+      )}
     </SafeAreaView>
   )
 }
@@ -728,5 +796,45 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.page,
     paddingBottom: Spacing.xs,
     backgroundColor: Colors.bgCard,
+  },
+  // ── Media ──
+  mediaSection: {
+    marginTop: Spacing.md,
+  },
+  mediaGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 4,
+  },
+  mediaThumb: {
+    width: "33%",
+    aspectRatio: 1,
+    borderRadius: Radius.md,
+    overflow: "hidden",
+  },
+  mediaThumbSingle: {
+    width: "100%",
+    aspectRatio: 16 / 9,
+  },
+  mediaThumbHalf: {
+    width: "49%",
+  },
+  mediaThumbWide: {
+    width: "100%",
+  },
+  mediaThumbImage: {
+    width: "100%",
+    height: "100%",
+  },
+  mediaMoreOverlay: {
+    ...StyleSheet.absoluteFill as any,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  mediaMoreText: {
+    color: "#FFF",
+    fontSize: FontSize.heading2,
+    fontWeight: FontWeight.bold,
   },
 })

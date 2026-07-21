@@ -13,8 +13,10 @@ import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useMomentFeed } from "../../../hooks/useMomentFeed";
 import { useLikeToggle } from "../../../hooks/useLikeToggle";
+import { useGallery } from "../../../hooks/useGallery";
 import { useQueryClient } from "@tanstack/react-query";
 import { MomentCard } from "../../../components/moment";
+import { GalleryViewer } from "../../../components/media";
 
 import { Colors, Spacing, FontSize, FontWeight, Radius } from "../../../constants/theme";
 import type { MomentFeedItem } from "../../../types/api";
@@ -92,6 +94,7 @@ export default function HomeFeedScreen() {
   const [sort, setSort] = useState<"latest" | "hot">("latest");
   const queryClient = useQueryClient();
   const likeToggle = useLikeToggle();
+  const gallery = useGallery();
 
   const {
     data,
@@ -224,6 +227,7 @@ export default function HomeFeedScreen() {
               onPress={() => router.push(`/(tabs)/home/${item.id}`)}
               onLikeToggle={() => handleLikeToggle(item)}
               onAuthorPress={() => handleAuthorPress(item.user_id)}
+              onMediaPress={(images, index) => gallery.open({ images, initialIndex: index })}
               likePending={likeToggle.isPending}
             />
           )}
@@ -235,6 +239,16 @@ export default function HomeFeedScreen() {
               </View>
             ) : null
           }
+        />
+      )}
+
+      {/* ── Media Gallery Viewer ── */}
+      {gallery.options && (
+        <GalleryViewer
+          visible={gallery.visible}
+          images={gallery.options.images}
+          initialIndex={gallery.options.initialIndex ?? 0}
+          onClose={gallery.close}
         />
       )}
     </SafeAreaView>

@@ -91,12 +91,13 @@ describe('MomentCard component interface', () => {
     const item = createMockMoment({ content: longContent });
 
     // The component truncates to 80 chars
+    const content = item.content ?? '';
     const truncated =
-      item.content.length > 80
-        ? item.content.slice(0, 80) + '…'
-        : item.content;
+      content.length > 80
+        ? content.slice(0, 80) + '…'
+        : content;
 
-    expect(item.content.length).toBe(200);
+    expect(item.content?.length).toBe(200);
     expect(truncated).toHaveLength(81); // 80 chars + '…'
     expect(truncated.endsWith('…')).toBe(true);
   });
@@ -105,10 +106,11 @@ describe('MomentCard component interface', () => {
     const shortContent = 'Short moment';
     const item = createMockMoment({ content: shortContent });
 
+    const cnt = item.content ?? '';
     const truncated =
-      item.content.length > 80
-        ? item.content.slice(0, 80) + '…'
-        : item.content;
+      cnt.length > 80
+        ? cnt.slice(0, 80) + '…'
+        : cnt;
 
     expect(truncated).toBe(shortContent);
   });
