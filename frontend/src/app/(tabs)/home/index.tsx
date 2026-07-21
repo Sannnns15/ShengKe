@@ -17,6 +17,7 @@ import { useGallery } from "../../../hooks/useGallery";
 import { useQueryClient } from "@tanstack/react-query";
 import { MomentCard } from "../../../components/moment";
 import { GalleryViewer } from "../../../components/media";
+import { MomentCardSkeleton } from "../../../components/common/MomentCardSkeleton";
 
 import { Colors, Spacing, FontSize, FontWeight, Radius } from "../../../constants/theme";
 import type { MomentFeedItem } from "../../../types/api";
@@ -194,7 +195,9 @@ export default function HomeFeedScreen() {
       {/* ── Loading ── */}
       {isLoading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={Colors.primary} />
+          <MomentCardSkeleton />
+          <MomentCardSkeleton />
+          <MomentCardSkeleton />
         </View>
       ) : isError ? (
         /* ── Error ── */
@@ -221,6 +224,10 @@ export default function HomeFeedScreen() {
           onEndReached={handleEndReached}
           onEndReachedThreshold={0.5}
           ListEmptyComponent={EmptyState}
+          removeClippedSubviews={true}
+          maxToRenderPerBatch={10}
+          windowSize={5}
+          initialNumToRender={5}
           renderItem={({ item }) => (
             <MomentCard
               item={item}

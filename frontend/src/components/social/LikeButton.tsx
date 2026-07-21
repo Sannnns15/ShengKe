@@ -10,7 +10,7 @@ export interface LikeButtonProps {
   disabled?: boolean
 }
 
-export function LikeButton({
+export const LikeButton = React.memo(function LikeButton({
   count,
   isLiked,
   onPress,
@@ -33,7 +33,7 @@ export function LikeButton({
       </Text>
     </TouchableOpacity>
   )
-}
+})
 
 const styles = StyleSheet.create({
   container: {

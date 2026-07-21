@@ -12,6 +12,7 @@ from app.models.follow import Follow
 from app.models.like import Like
 from app.models.user import User
 from app.models.tag import Tag, MomentTag
+from app.core.cache import get, set, delete, delete_pattern, make_key, TTL
 from app.services.audit import audit_text
 from app.services.mention import process_mentions
 from app.services.ai import analyze_moment as analyze_moment_service
@@ -100,6 +101,9 @@ async def create_moment(
     #   from app.tasks.ai import analyze_moment_task
     #   analyze_moment_task.delay(str(moment.id))
     await analyze_moment_service(db, moment.id)
+
+    # Invalidate feed caches — fresh moments should appear in feeds
+    await delete_pattern("shengke:feed:*")
 
     return moment
 
@@ -333,6 +337,90 @@ async def get_feed(
     return items, total
 
 
+async def get_feed(
+    db: AsyncSession,
+    user_id: UUID,
+    page: int = 1,
+    page_size: int = 20,
+    sort: str = "latest",
+) -> tuple[list[dict], int]:
+    """Get the home Feed — moments from followed users and public moments.
+
+    Includes:
+    - Public (privacy_level == 0) moments from everyone
+    - Follow-visible (privacy_level == 1) moments from followed users
+    - Mutual-only (privacy_level == 2) moments from mutual followers
+    - Excludes archived (is_archived=True), deleted, and own moments
+
+    Returns (list of dicts with author info + is_liked, total count).
+    """
+    cache_key = make_key("feed", str(user_id), page, page_size, sort)
+    cached = await get(cache_key)
+    if cached is not None:
+        return cached
+
+    conditions, _, _ = await _build_feed_base_conditions(db, user_id)
+
+    # Count
+    count_query = select(func.count(Moment.id)).where(*conditions)
+    total_result = await db.execute(count_query)
+    total = total_result.scalar() or 0
+
+    if total == 0:
+        return [], 0
+
+    # Determine sort order
+    if sort == "hot":
+        order_clause = Moment.like_count.desc()
+    else:
+        order_clause = Moment.created_at.desc()
+
+    # Fetch moments with author join
+    query = (
+        select(Moment, User.nickname, User.avatar_url)
+        .join(User, Moment.user_id == User.id)
+        .where(*conditions)
+        .order_by(order_clause)
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+    )
+    result = await db.execute(query)
+    rows = result.all()
+
+    # Fetch likes by current user for all returned moment IDs
+    moment_ids = [row.Moment.id for row in rows]
+    liked_moment_ids = await _get_liked_moment_ids(db, user_id, moment_ids)
+
+    # Build result dicts
+    items = []
+    for row in rows:
+        moment = row.Moment
+        item = {
+            "id": moment.id,
+            "user_id": moment.user_id,
+            "title": moment.title,
+            "content": moment.content,
+            "mood": moment.mood,
+            "weather": moment.weather,
+            "location_name": moment.location_name,
+            "privacy_level": moment.privacy_level,
+            "is_archived": moment.is_archived,
+            "ai_tags": moment.ai_tags,
+            "comment_count": moment.comment_count,
+            "like_count": moment.like_count,
+            "view_count": moment.view_count,
+            "created_at": moment.created_at,
+            "author_nickname": row.nickname,
+            "author_avatar_url": row.avatar_url,
+            "is_liked": moment.id in liked_moment_ids,
+        }
+        items.append(item)
+
+    result_data = (items, total)
+    await set(cache_key, result_data, TTL.get("feed", 60))
+    return result_data
+
+
 async def _get_liked_moment_ids(
     db: AsyncSession,
     user_id: UUID,
@@ -424,6 +512,18 @@ async def get_feed_cursor(
     sort: str = "latest",
 ) -> tuple[list[dict], str | None, bool]:
     """Get feed with cursor-based pagination.
+
+    Cursor format for latest: base64("{id},{created_at_isoformat}")
+    Cursor format for hot:   base64("{id},{like_count}")
+
+    Returns (items, next_cursor, has_more).
+    """
+    # Cache the first page only (cursor=None) for 60s
+    if cursor is None:
+        cache_key = make_key("feed", str(user_id), "cursor", limit, sort)
+        cached = await get(cache_key)
+        if cached is not None:
+            return cached
 
     Cursor format for latest: base64("{id},{created_at_isoformat}")
     Cursor format for hot:   base64("{id},{like_count}")
@@ -539,6 +639,11 @@ async def get_feed_cursor(
             cursor_raw = f"{last['id']},{last['created_at'].isoformat()}"
         next_cursor = base64.b64encode(cursor_raw.encode()).decode()
 
+    # Cache the first page
+    if cursor is None:
+        cache_key = make_key("feed", str(user_id), "cursor", limit, sort)
+        await set(cache_key, (items, next_cursor, has_more), TTL.get("feed", 60))
+
     return items, next_cursor, has_more
 
 
@@ -551,6 +656,11 @@ async def get_moment_with_like_status(
 
     Returns a dict with Moment data plus is_liked, or None if not accessible.
     """
+    cache_key = make_key("moment", str(moment_id), str(current_user_id))
+    cached = await get(cache_key)
+    if cached is not None:
+        return cached
+
     result = await db.execute(
         select(Moment).where(
             Moment.id == moment_id,
@@ -607,6 +717,8 @@ async def get_moment_with_like_status(
         "is_liked": is_liked,
     }
 
+    await set(cache_key, result_dict, TTL.get("moment", 120))
+
     return result_dict
 
 
@@ -643,6 +755,11 @@ async def update_moment(
     moment.updated_at = datetime.now(timezone.utc)
     await db.commit()
     await db.refresh(moment)
+
+    # Invalidate cache for this moment
+    await delete(make_key("moment", str(moment_id)))
+    await delete_pattern("shengke:feed:*")
+
     return moment
 
 
@@ -668,6 +785,11 @@ async def delete_moment(
 
     moment.deleted_at = datetime.now(timezone.utc)
     await db.commit()
+
+    # Invalidate cache
+    await delete(make_key("moment", str(moment_id)))
+    await delete_pattern("shengke:feed:*")
+
     return True
 
 
@@ -695,6 +817,11 @@ async def toggle_archive(
     moment.updated_at = datetime.now(timezone.utc)
     await db.commit()
     await db.refresh(moment)
+
+    # Invalidate cache
+    await delete(make_key("moment", str(moment_id)))
+    await delete_pattern("shengke:feed:*")
+
     return moment
 
 
@@ -726,4 +853,7 @@ async def update_privacy(
     moment.updated_at = datetime.now(timezone.utc)
     await db.commit()
     await db.refresh(moment)
+    # Invalidate cache
+    await delete(make_key("moment", str(moment_id)))
+    await delete_pattern("shengke:feed:*")
     return moment

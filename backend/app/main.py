@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.v1.router import router as v1_router
 from app.core.config import get_settings
+from app.core.cache import close as close_redis
 
 settings = get_settings()
 
@@ -13,7 +14,8 @@ settings = get_settings()
 async def lifespan(app: FastAPI):
     # Startup
     yield
-    # Shutdown
+    # Shutdown — clean up Redis connections
+    await close_redis()
 
 
 app = FastAPI(

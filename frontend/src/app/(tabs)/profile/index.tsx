@@ -259,6 +259,10 @@ export default function ProfileScreen() {
           }
           onEndReached={handleEndReached}
           onEndReachedThreshold={0.5}
+          removeClippedSubviews={true}
+          maxToRenderPerBatch={10}
+          windowSize={5}
+          initialNumToRender={5}
           ListHeaderComponent={
             <>
               {/* ── User Info Header ── */}

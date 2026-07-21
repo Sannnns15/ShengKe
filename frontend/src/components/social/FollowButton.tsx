@@ -8,7 +8,7 @@ export interface FollowButtonProps {
   loading?: boolean
 }
 
-export function FollowButton({
+export const FollowButton = React.memo(function FollowButton({
   isFollowing,
   onPress,
   loading = false,
@@ -40,7 +40,7 @@ export function FollowButton({
       )}
     </TouchableOpacity>
   )
-}
+})
 
 const styles = StyleSheet.create({
   button: {

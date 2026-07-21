@@ -25,7 +25,7 @@ export interface CommentItemProps {
   depth?: number
 }
 
-export function CommentItem({
+export const CommentItem = React.memo(function CommentItem({
   comment,
   onReply,
   onLikeToggle,
@@ -115,7 +115,7 @@ export function CommentItem({
       )}
     </View>
   )
-}
+})
 
 const styles = StyleSheet.create({
   container: {

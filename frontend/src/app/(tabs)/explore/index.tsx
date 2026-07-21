@@ -20,6 +20,7 @@ import { searchMoments } from "../../../services/search";
 import { formatRelativeTime } from "../../../utils/format";
 import { Colors, Spacing, FontSize, FontWeight, Radius } from "../../../constants/theme";
 import { PAGE_SIZE } from "../../../constants/config";
+import { MomentCardSkeleton } from "../../../components/common/MomentCardSkeleton";
 import type { MomentFeedItem, PaginatedData } from "../../../types/api";
 
 // ── Constants ──────────────────────────────────────────
@@ -456,7 +457,9 @@ export default function ExploreScreen() {
       {/* ── Content ── */}
       {isLoading ? (
         <View style={styles.center}>
-          <ActivityIndicator size="large" color={Colors.primary} />
+          <MomentCardSkeleton />
+          <MomentCardSkeleton />
+          <MomentCardSkeleton />
         </View>
       ) : isError ? (
         <View style={styles.center}>
@@ -483,6 +486,10 @@ export default function ExploreScreen() {
           ]}
           onEndReached={handleEndReached}
           onEndReachedThreshold={0.5}
+          removeClippedSubviews={true}
+          maxToRenderPerBatch={10}
+          windowSize={5}
+          initialNumToRender={5}
           ListHeaderComponent={
             <>
               {/* ── Hot Tags (default view only) ── */}

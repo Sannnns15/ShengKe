@@ -42,7 +42,7 @@ function getMediaUrls(item: MomentFeedItem): string[] {
   return []
 }
 
-export function MomentCard({
+export const MomentCard = React.memo(function MomentCard({
   item,
   onPress,
   onLikeToggle,
@@ -165,7 +165,7 @@ export function MomentCard({
       </View>
     </TouchableOpacity>
   )
-}
+})
 
 // ── Styles ──────────────────────────────────────────────
 const styles = StyleSheet.create({
