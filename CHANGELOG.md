@@ -109,6 +109,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `services/userSettings.ts` — `getMySettings` / `updateMySettings`
 - Settings page: notification toggle (`notification_enabled`), privacy level radio selector (`privacy_default`)
 
+## [0.11.0] — 2026-07-22
+
+### Added
+
+#### Backend — AI Tag Auto-Extraction
+- `create_moment` now auto-triggers AI analysis (mock/LLM) populating `ai_tags`, `ai_summary`, `ai_emotion`
+- `app/tasks/ai.py` — Celery async task `analyze_moment_task` triggered on moment creation
+- `GET /users/me/mood-stats` — mood statistics endpoint for chart data: daily breakdown, emotion pie, top tags
+
+#### Backend — @Mention System
+- `app/services/mention.py` — `extract_mentions()` regex parser, `process_mentions()` creates `mention`-type notifications
+- Mentions processed in both Moment creation and Comment creation
+- Updated Notification model comment to include "mention" in type enum
+
+#### Backend — Search Filters
+- `GET /search/moments` enhanced: filter by `tag`, `user_id`, `date_from`, `date_to`, `mood`
+- Search results now return `FeedItem` format with author info and is_liked status
+
+#### Frontend — Mood Charts Dashboard
+- `services/ai.ts` — `getMoodStats()` function + `DailyMood`/`MoodStats` types
+- `app/ai/mood-report.tsx` — new "数据统计" tab: daily mood dots, emotion pie chart, top tags with progress bars
+- Retains original "情绪报告" tab with AI-driven summary
+
+#### Frontend — @Mention Input
+- `components/social/MentionInput.tsx` — reusable mention input: detects `@`, searches users via API, dropdown selector
+- `app/(tabs)/create/index.tsx` — content input replaced with MentionInput
+- `components/social/CommentComposer.tsx` — `@mention` support with user search overlay
+
+#### Frontend — Media Gallery
+- `components/media/ImageViewer.tsx` — full-screen `GalleryViewer`: FlatList paging, PinchGestureHandler zoom, Reanimated animations
+- `hooks/useGallery.ts` — gallery state management hook
+- `components/moment/MomentCard.tsx` — media preview images, tap to open gallery
+- Gallery integrated in home feed, profile page, and moment detail page
+
 ## [0.10.0] — 2026-07-22
 
 ### Added
