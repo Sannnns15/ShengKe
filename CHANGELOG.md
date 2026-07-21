@@ -109,6 +109,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `services/userSettings.ts` — `getMySettings` / `updateMySettings`
 - Settings page: notification toggle (`notification_enabled`), privacy level radio selector (`privacy_default`)
 
+## [0.10.0] — 2026-07-22
+
+### Added
+
+#### Backend — Full-Text Search (tsvector)
+- GIN index on `moments` table: `to_tsvector('simple', coalesce(title,'') || ' ' || coalesce(content,''))`
+- Alembic migration `add_tsvector_gin_index`
+- `GET /search/moments` upgraded: tsvector full-text search with weighted ranking (title=A, content=B)
+- Search sort modes: `relevance` (ts_rank DESC), `latest` (created_at DESC), `hot` (like_count DESC, 30-day window)
+- Search returns `FeedItem` format (with author info)
+- `sort` query parameter added to search endpoint
+
+#### Backend — Core API Tests
+- `tests/test_moments.py` — create, get, update, delete, feed, archive, privacy tests
+- `tests/test_comments.py` — create (plain + reply), list, delete, count decrement
+- `tests/test_likes.py` — like, unlike, idempotent, count update
+- `tests/test_follows.py` — follow, unfollow, self-follow prevention, follower/following lists
+- `tests/test_search.py` — moment search, user search, empty results
+- All 5 test files passing with auth fixture
+
+#### Frontend — Search Page
+- `services/search.ts` — `searchMoments()` and `searchUsers()` real API services
+- Explore page fully rewritten: 500ms debounced auto-search, results with infinite scroll pagination
+- Search history persisted to AsyncStorage (max 10 items, clear single/all)
+- Hot tags extracted from feed (AI tag word frequency top 10)
+- Empty/error states with retry, loading indicators
+
+#### Frontend — Dark Mode
+- `stores/themeStore.tsx` — system/light/dark three-state, persisted, computed `isDark`
+- `DarkColors` palette in `constants/theme.ts` (deep navy/coral scheme)
+- `hooks/useColors.ts` — `useColors()` returns active palette
+- `app/_layout.tsx` — ThemeInitializer loads persisted theme, listens to system Appearance
+- Settings page: "主题" section with radio-style selector (跟随系统/浅色/深色)
+- StatusBar adapts to dark/light mode
+
+#### Frontend — Component Tests
+- Installed `@testing-library/react-native` v14 + `@testing-library/jest-native`
+- `test-setup.ts` mocking RN modules (icons, safe-area, gesture-handler, expo-router, tanstack-query)
+- `Button.test.tsx` — 10 tests: variants, sizes, disabled/loading states, callbacks
+- `Input.test.tsx` — 10 tests: placeholder, onChangeText, error, label, multiline, icons
+- `MomentCard.test.tsx` — 10 tests: content rendering, counts, callbacks, tags, truncation
+- **45 tests total, all passing**
+
 ## [0.9.0] — 2026-07-22
 
 ### Added
