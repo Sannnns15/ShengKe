@@ -75,6 +75,8 @@ async def create_moment(
         for tag in tags:
             moment_tag = MomentTag(moment_id=moment.id, tag_id=tag.id)
             db.add(moment_tag)
+        # Also set ai_tags for immediate search filtering
+        moment.ai_tags = tag_names
 
     await db.commit()
     await db.refresh(moment)

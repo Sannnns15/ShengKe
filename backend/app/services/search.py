@@ -4,7 +4,7 @@ from datetime import datetime, timezone, timedelta
 from typing import Optional
 from uuid import UUID
 
-from sqlalchemy import select, func, or_
+from sqlalchemy import select, func, or_, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.moment import Moment
@@ -43,7 +43,7 @@ async def search_moments(
     """Full-text search over Moments using PostgreSQL tsvector.
 
     Uses GIN-indexed tsvector on (title || ' ' || content) with simple
-    configuration. Weighted: title=A, content=B.
+    configuration.
 
     Results are filtered to:
       - Public (privacy_level == 0) moments, OR
@@ -70,22 +70,16 @@ async def search_moments(
     if tag:
         conditions.append(Moment.ai_tags.any(tag))
 
-    # Build tsquery from user input
-    # Only apply tsvector filter when query is non-empty
+    # Build tsvector expression: coalesced title + ' ' + coalesced content
+    # This matches the GIN index idx_moments_search.
+    ts_vector = func.to_tsvector(
+        "simple",
+        func.coalesce(Moment.title, "") + text("' '") + func.coalesce(Moment.content, ""),
+    )
     ts_query = func.plainto_tsquery("simple", query)
 
-    # Weighted tsvector: title=A (higher), content=B (normal)
-    ts_vector_weighted = (
-        func.setweight(
-            func.to_tsvector("simple", func.coalesce(Moment.title, "")), "A"
-        )
-        + func.setweight(
-            func.to_tsvector("simple", func.coalesce(Moment.content, "")), "B"
-        )
-    )
-
     # Add tsquery filter
-    conditions.append(ts_vector_weighted.op("@@")(ts_query))
+    conditions.append(ts_vector.op("@@")(ts_query))
 
     # Count
     count_query = select(func.count(Moment.id)).where(*conditions)
@@ -105,7 +99,7 @@ async def search_moments(
         order_clause = Moment.like_count.desc()
     else:
         # Default: relevance sort by ts_rank
-        rank = func.ts_rank(ts_vector_weighted, ts_query)
+        rank = func.ts_rank(ts_vector, ts_query)
         order_clause = rank.desc()
 
     # Fetch with author join

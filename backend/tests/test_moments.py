@@ -210,10 +210,12 @@ async def test_delete_moment_not_author(
 
 @pytest.mark.asyncio
 async def test_feed_pagination(
-    test_client: AsyncClient, auth_headers: dict,
+    test_client: AsyncClient,
+    auth_headers: dict,
+    second_user_headers: dict,
 ) -> None:
-    """Feed returns paginated results."""
-    # Create multiple moments
+    """Feed returns paginated results from other users."""
+    # User B creates multiple public moments for User A's feed
     for i in range(3):
         await test_client.post(
             "/api/v1/moments",
@@ -222,10 +224,10 @@ async def test_feed_pagination(
                 "content": f"Feed content {i}",
                 "privacy_level": 0,
             },
-            headers=auth_headers,
+            headers=second_user_headers,
         )
 
-    # Get feed
+    # User A gets feed — should see User B's moments
     resp = await test_client.get(
         "/api/v1/moments?page=1&page_size=2",
         headers=auth_headers,
@@ -235,7 +237,6 @@ async def test_feed_pagination(
     assert body["code"] == 0
     assert len(body["data"]) <= 2
     assert body["meta"]["total"] >= 3
-    # Feed excludes own moments, so total might be 0 — just verify structure
     assert body["meta"]["page"] == 1
     assert body["meta"]["page_size"] == 2
 
