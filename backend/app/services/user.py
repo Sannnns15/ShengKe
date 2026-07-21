@@ -7,6 +7,7 @@ from sqlalchemy import select, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.follow import Follow
+from app.models.like import Like
 from app.models.moment import Moment
 from app.models.user import User
 
@@ -67,6 +68,15 @@ async def get_user_profile(
     )
     following_count = following_count_result.scalar() or 0
 
+    # Count likes received (sum of like_count on all user's moments)
+    likes_received_result = await db.execute(
+        select(func.coalesce(func.sum(Moment.like_count), 0)).where(
+            Moment.user_id == user_id,
+            Moment.deleted_at.is_(None),
+        )
+    )
+    likes_received_count = likes_received_result.scalar() or 0
+
     # Check if current user is following this user
     is_following = False
     if current_user_id and current_user_id != user_id:
@@ -91,6 +101,7 @@ async def get_user_profile(
         "moments_count": moments_count,
         "followers_count": followers_count,
         "following_count": following_count,
+        "likes_received_count": likes_received_count,
         "is_following": is_following,
     }
 
