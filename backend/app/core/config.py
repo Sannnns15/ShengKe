@@ -1,4 +1,4 @@
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsError
 from functools import lru_cache
 
 
@@ -42,4 +42,11 @@ class Settings(BaseSettings):
 
 @lru_cache()
 def get_settings() -> Settings:
-    return Settings()
+    s = Settings()
+    # Production safety: reject the default placeholder JWT secret
+    if s.jwt_secret == "CHANGE-ME-in-production" and not s.debug:
+        raise SettingsError(
+            "JWT_SECRET must be set to a secure value in production. "
+            "Set it via environment variable or in .env file."
+        )
+    return s

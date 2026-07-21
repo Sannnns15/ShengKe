@@ -525,11 +525,6 @@ async def get_feed_cursor(
         if cached is not None:
             return cached
 
-    Cursor format for latest: base64("{id},{created_at_isoformat}")
-    Cursor format for hot:   base64("{id},{like_count}")
-
-    Returns (items, next_cursor, has_more).
-    """
     conditions, _, _ = await _build_feed_base_conditions(db, user_id)
 
     parsed_cursor_valid = False

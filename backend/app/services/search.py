@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.moment import Moment
 from app.models.user import User
+from app.core.cache import get, set, make_key, TTL
 from app.models.like import Like
 
 
@@ -62,6 +63,14 @@ async def search_moments(
 
     Returns (list of FeedItem-style dicts with author info, total count).
     """
+    cache_key = make_key("search", query, sort, tag or "", str(page),
+                          str(page_size), str(current_user_id),
+                          str(user_id or ""), date_from or "", date_to or "",
+                          mood or "")
+    cached = await get(cache_key)
+    if cached is not None:
+        return cached
+
     # Build base conditions
     conditions = [
         Moment.deleted_at.is_(None),
@@ -168,6 +177,7 @@ async def search_moments(
         }
         items.append(item)
 
+    await set(cache_key, (items, total), TTL.get("search", 30))
     return items, total
 
 

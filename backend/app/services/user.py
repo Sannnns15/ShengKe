@@ -6,6 +6,7 @@ from uuid import UUID
 from sqlalchemy import select, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.cache import get, set, delete, make_key, TTL
 from app.models.follow import Follow
 from app.models.like import Like
 from app.models.moment import Moment
@@ -46,6 +47,12 @@ async def get_user_profile(
 
     Returns None if the user does not exist or is soft-deleted.
     """
+    # Cache is per-viewer — is_following varies per user
+    cache_key = make_key("profile", str(user_id), str(current_user_id))
+    cached = await get(cache_key)
+    if cached is not None:
+        return cached
+
     result = await db.execute(
         select(User).where(
             User.id == user_id,
@@ -108,7 +115,7 @@ async def get_user_profile(
         )
         is_following = follow_result.scalars().first() is not None
 
-    return {
+    profile = {
         "id": user.id,
         "phone": _mask_phone(user.phone),
         "nickname": user.nickname,
@@ -123,6 +130,8 @@ async def get_user_profile(
         "likes_received_count": likes_received_count,
         "is_following": is_following,
     }
+    await set(cache_key, profile, TTL.get("profile", 300))
+    return profile
 
 
 async def get_own_profile(
@@ -136,6 +145,11 @@ async def get_own_profile(
       - Returns moments_count across all privacy levels
       - Always sets is_following = False (can't follow yourself)
     """
+    cache_key = make_key("profile", str(user_id), str(user_id))
+    cached = await get(cache_key)
+    if cached is not None:
+        return cached
+
     result = await db.execute(
         select(User).where(
             User.id == user_id,
@@ -182,7 +196,7 @@ async def get_own_profile(
     )
     likes_received_count = likes_received_result.scalar() or 0
 
-    return {
+    profile = {
         "id": user.id,
         "phone": user.phone,  # unmasked for own profile
         "nickname": user.nickname,
@@ -196,6 +210,8 @@ async def get_own_profile(
         "following_count": following_count,
         "likes_received_count": likes_received_count,
     }
+    await set(cache_key, profile, TTL.get("profile", 300))
+    return profile
 
 
 async def update_user_profile(
@@ -227,6 +243,10 @@ async def update_user_profile(
     user.updated_at = datetime.now(timezone.utc)
     await db.commit()
     await db.refresh(user)
+
+    # Invalidate all cached profiles for this user
+    await delete_pattern(f"shengke:profile:{user_id}:*")
+
     return user
 
 
@@ -251,6 +271,11 @@ async def delete_user(
     user.deleted_at = datetime.now(timezone.utc)
     user.status = 0
     await db.commit()
+
+    # Invalidate all cached profiles and feeds for this user
+    await delete_pattern(f"shengke:profile:{user_id}:*")
+    await delete_pattern("shengke:feed:*")
+
     return True
 
 
