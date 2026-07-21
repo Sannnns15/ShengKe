@@ -68,6 +68,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Import paths updated: `app/(tabs)/home/index.tsx` and `app/(tabs)/profile/index.tsx` now use barrel exports from `components/moment`
 - Legacy `components/MomentCard.tsx` deleted (moved to `components/moment/`)
 
+## [0.8.0] — 2026-07-22
+
+### Added
+
+#### Backend — WebSocket Notification Push
+- WebSocket endpoint `GET /ws?token=...` with JWT authentication
+- `ConnectionManager` managing per-user WebSocket connections with auto-cleanup
+- `create_notification` now pushes real-time via WebSocket to the target user's active connections
+- Notifications for like, comment, and follow events are now pushed instantly
+
+#### Backend — Comment Tree Structure
+- `CommentTreeItem` schema with recursive `replies` field for nested comment display
+- `GET /moments/{id}/comments` returns tree structure (root comments → child replies)
+- Comments JOIN User table for `author_nickname` and `author_avatar_url`
+- Soft-deleted comments show `"[该评论已被删除]"` placeholder
+- `DELETE /comments/{id}` decrements Moment.comment_count
+
+#### Backend — User Settings API
+- `GET /users/me/settings` — reads `settings_json` on User model, returns structured response
+- `PATCH /users/me/settings` — partial update, merges into `settings_json`
+- `UserSettingsResponse` with `notification_enabled` and `privacy_default` fields
+
+#### Frontend — Comment Components
+- `components/social/CommentItem.tsx` — avatar, nickname, time, content, reply/like/delete buttons, recursive child indentation
+- `components/social/CommentList.tsx` — FlatList with recursive rendering, loading/empty states, load more
+- `components/social/CommentComposer.tsx` — TextInput + send, reply banner with @nickname, auto-focus
+- Barrel exports in `components/social/index.ts`
+- `app/(tabs)/home/[id].tsx` refactored to use CommentList + CommentComposer, with reply-to state and delete mutation
+
+#### Frontend — WebSocket Real-time Notifications
+- `hooks/useWebSocket.ts` — auto-connect with JWT, 30s heartbeat ping, 5s auto-reconnect
+- Notifications page upgraded: WebSocket inserts new notifications at top in real-time
+- Actor avatar displayed in notification items (using Avatar component)
+- Click notification navigates to target Moment
+- Retained polling as fallback; removed mock data dependency
+- Tab navigation shows unread badge on notification icon
+
+#### Frontend — User Settings UI
+- `services/userSettings.ts` — `getMySettings` / `updateMySettings`
+- Settings page: notification toggle (`notification_enabled`), privacy level radio selector (`privacy_default`)
+
 ## [0.4.0] — 2026-07-20
 
 ### Added
