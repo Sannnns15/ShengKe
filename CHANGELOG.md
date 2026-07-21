@@ -47,6 +47,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 #### Frontend — API Compatibility
 - `toggleLike` and `getLikeStatus` target_type parameter: now properly maps "moment"→1, "comment"→2 (was sending string, backend expects int)
 
+## [0.7.0] — 2026-07-21
+
+### Added
+
+#### Frontend — Component Library (Sprint 6)
+- `components/common/` — 9 reusable components: Button (4 variants × 3 sizes, loading/disabled), Input (label/error/icons/multiline), Avatar (uri + letter fallback), LoadingView, EmptyState, ErrorView, PrivacyBadge, Card, SectionHeader
+- `components/moment/` — MomentCard moved from root, refactored to use sub-components (Avatar, PrivacyBadge, LikeButton)
+- `components/user/` — ProfileHeader (avatar + stats + bio)
+- `components/social/` — LikeButton (heart toggle + count), FollowButton (follow/unfollow dual state)
+- `components/media/` — ImageViewer placeholder
+- `components/ai/` — AiChatBubble (user/assistant dual bubble + timestamp)
+- All 6 component dirs have barrel index.ts exports
+
+#### Frontend — Stores
+- `stores/momentStore.tsx` — draft persistence + feed sort state
+- `stores/uiStore.tsx` — toast message queue with 3s auto-dismiss
+
+### Changed
+- Import paths updated: `app/(tabs)/home/index.tsx` and `app/(tabs)/profile/index.tsx` now use barrel exports from `components/moment`
+- Legacy `components/MomentCard.tsx` deleted (moved to `components/moment/`)
+
 ## [0.4.0] — 2026-07-20
 
 ### Added
