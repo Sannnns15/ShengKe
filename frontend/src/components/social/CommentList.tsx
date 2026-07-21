@@ -28,7 +28,7 @@ export function CommentList({
   hasMore = false,
 }: CommentListProps) {
   if (isLoading && comments.length === 0) {
-    return <LoadingView text="加载评论..." />
+    return <LoadingView message="加载评论..." />
   }
 
   if (!isLoading && comments.length === 0) {
@@ -36,7 +36,7 @@ export function CommentList({
       <EmptyState
         icon="chatbubbles-outline"
         title="暂无评论"
-        message="快来写下第一条评论吧"
+        subtitle="快来写下第一条评论吧"
       />
     )
   }

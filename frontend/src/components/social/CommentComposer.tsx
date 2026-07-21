@@ -92,7 +92,7 @@ const styles = StyleSheet.create({
   },
   replyText: {
     fontSize: FontSize.small,
-    color: Colors.secondary,
+    color: Colors.primary,
     flex: 1,
     marginRight: Spacing.sm,
   },

@@ -1,7 +1,15 @@
-import { Tabs } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
+import { Tabs } from "expo-router"
+import { Ionicons } from "@expo/vector-icons"
+import { useQuery } from "@tanstack/react-query"
+import { getUnreadCount } from "../../services/notifications"
 
 export default function TabLayout() {
+  const { data: unreadCount = 0 } = useQuery({
+    queryKey: ["unreadCount"],
+    queryFn: getUnreadCount,
+    refetchInterval: 30_000,
+  })
+
   return (
     <Tabs
       screenOptions={{
@@ -55,6 +63,7 @@ export default function TabLayout() {
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="notifications-outline" size={size} color={color} />
           ),
+          tabBarBadge: unreadCount > 0 ? unreadCount : undefined,
         }}
       />
       <Tabs.Screen
@@ -67,5 +76,5 @@ export default function TabLayout() {
         }}
       />
     </Tabs>
-  );
+  )
 }

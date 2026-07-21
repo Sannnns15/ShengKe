@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useRef } from "react"
 import {
   View,
   Text,
@@ -7,11 +7,12 @@ import {
   TouchableOpacity,
   RefreshControl,
   ActivityIndicator,
-} from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
+  Alert,
+} from "react-native"
+import { SafeAreaView } from "react-native-safe-area-context"
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import { Ionicons } from "@expo/vector-icons"
+import { router } from "expo-router"
 import {
   getNotifications,
   getUnreadCount,
@@ -19,24 +20,32 @@ import {
   markAllNotificationsRead,
   type NotificationItem,
   type NotificationType,
-} from "../../../services/notifications";
-import { formatRelativeTime } from "../../../utils/format";
-import { Colors, Spacing, FontSize, FontWeight, Radius } from "../../../constants/theme";
+} from "../../../services/notifications"
+import { formatRelativeTime } from "../../../utils/format"
+import {
+  Colors,
+  Spacing,
+  FontSize,
+  FontWeight,
+  Radius,
+} from "../../../constants/theme"
+import { useWebSocket } from "../../../hooks/useWebSocket"
+import { Avatar } from "../../../components/common/Avatar"
 
 // ── Icon Map ─────────────────────────────────────────────
 function getNotificationIcon(type: NotificationType): {
-  name: keyof typeof Ionicons.glyphMap;
-  color: string;
+  name: keyof typeof Ionicons.glyphMap
+  color: string
 } {
   switch (type) {
     case "like":
-      return { name: "heart", color: Colors.error };
+      return { name: "heart", color: Colors.error }
     case "comment":
-      return { name: "chatbubble", color: Colors.info };
+      return { name: "chatbubble", color: Colors.info }
     case "follow":
-      return { name: "person-add", color: Colors.success };
+      return { name: "person-add", color: Colors.success }
     case "system":
-      return { name: "notifications", color: Colors.warning };
+      return { name: "notifications", color: Colors.warning }
   }
 }
 
@@ -45,10 +54,10 @@ function NotificationRow({
   item,
   onPress,
 }: {
-  item: NotificationItem;
-  onPress: (id: string) => void;
+  item: NotificationItem
+  onPress: (id: string) => void
 }) {
-  const icon = getNotificationIcon(item.type);
+  const icon = getNotificationIcon(item.type)
 
   return (
     <TouchableOpacity
@@ -56,9 +65,17 @@ function NotificationRow({
       onPress={() => onPress(item.id)}
       activeOpacity={0.7}
     >
-      <View style={[styles.iconCircle, { backgroundColor: icon.color + "18" }]}>
-        <Ionicons name={icon.name} size={20} color={icon.color} />
-      </View>
+      {item.actor_avatar ? (
+        <Avatar
+          uri={item.actor_avatar}
+          name={item.actor_name}
+          size={40}
+        />
+      ) : (
+        <View style={[styles.iconCircle, { backgroundColor: icon.color + "18" }]}>
+          <Ionicons name={icon.name} size={20} color={icon.color} />
+        </View>
+      )}
       <View style={styles.notifBody}>
         <Text style={styles.notifTitle}>{item.title}</Text>
         <Text style={styles.notifBodyText} numberOfLines={2}>
@@ -70,84 +87,104 @@ function NotificationRow({
       </View>
       {!item.is_read && <View style={styles.unreadDot} />}
     </TouchableOpacity>
-  );
+  )
 }
 
 // ── Main Screen ──────────────────────────────────────────
 export default function NotificationsScreen() {
-  const queryClient = useQueryClient();
-  const [page, setPage] = useState(1);
-  const [allItems, setAllItems] = useState<NotificationItem[]>([]);
+  const queryClient = useQueryClient()
+  const [page, setPage] = useState(1)
+  const [allItems, setAllItems] = useState<NotificationItem[]>([])
+  const allItemsRef = useRef(allItems)
+  allItemsRef.current = allItems
 
-  // ── Queries ──
-  const {
-    data,
-    isLoading,
-    isRefetching,
-    refetch,
-  } = useQuery({
+  // ── WebSocket: receive real-time notifications ──
+  useWebSocket({
+    onNotification: useCallback((data: NotificationItem) => {
+      // Insert new notification at the top
+      setAllItems((prev) => [data, ...prev])
+      // Bump unread count
+      queryClient.invalidateQueries({ queryKey: ["unreadCount"] })
+    }, [queryClient]),
+    enabled: true,
+  })
+
+  // ── Queries (polling as fallback) ──
+  const { data, isLoading, isRefetching, refetch } = useQuery({
     queryKey: ["notifications", page],
     queryFn: () => getNotifications(page),
-  });
+  })
 
   const { data: unreadCount } = useQuery({
     queryKey: ["unreadCount"],
     queryFn: getUnreadCount,
-    refetchInterval: 30_000, // poll every 30s
-  });
+    refetchInterval: 30_000, // poll every 30s as fallback
+  })
 
-  // Update local list when data arrives
+  // Update local list when data arrives from query
   React.useEffect(() => {
     if (data) {
       if (page === 1) {
-        setAllItems(data.items);
+        setAllItems(data.items)
       } else {
-        setAllItems((prev) => [...prev, ...data.items]);
+        setAllItems((prev) => [...prev, ...data.items])
       }
     }
-  }, [data, page]);
+  }, [data, page])
 
   // ── Mark read mutation ──
   const markReadMutation = useMutation({
-    mutationFn: markNotificationRead,
+    mutationFn: (id: string) => markNotificationRead(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["notifications"] });
-      queryClient.invalidateQueries({ queryKey: ["unreadCount"] });
+      queryClient.invalidateQueries({ queryKey: ["notifications"] })
+      queryClient.invalidateQueries({ queryKey: ["unreadCount"] })
     },
-  });
+  })
 
   // ── Mark all read mutation ──
   const markAllReadMutation = useMutation({
     mutationFn: markAllNotificationsRead,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["notifications"] });
-      queryClient.invalidateQueries({ queryKey: ["unreadCount"] });
+      queryClient.invalidateQueries({ queryKey: ["notifications"] })
+      queryClient.invalidateQueries({ queryKey: ["unreadCount"] })
     },
-  });
+  })
 
   // ── Handlers ──
   const handlePressNotification = useCallback(
     (id: string) => {
+      // Find the notification to get target_id
+      const item = allItemsRef.current.find((n) => n.id === id)
+      if (!item) return
+
       // Optimistically mark as read
-      markReadMutation.mutate(id);
+      markReadMutation.mutate(id)
+
+      // Navigate to target moment if available
+      if (item.target_id) {
+        router.push(`/(tabs)/home/${item.target_id}`)
+      } else if (item.type === "follow") {
+        // Navigate to profile
+        router.push(`/(tabs)/profile/${item.id}`)
+      }
     },
     [markReadMutation]
-  );
+  )
 
   const handleRefresh = useCallback(() => {
-    setPage(1);
-    refetch();
-  }, [refetch]);
+    setPage(1)
+    refetch()
+  }, [refetch])
 
   const handleLoadMore = useCallback(() => {
     if (data?.has_more && !isLoading) {
-      setPage((p) => p + 1);
+      setPage((p) => p + 1)
     }
-  }, [data?.has_more, isLoading]);
+  }, [data?.has_more, isLoading])
 
   // ── Render ──
-  const hasUnread = (allItems ?? []).some((n) => !n.is_read);
-  const showEmptyState = !isLoading && allItems.length === 0;
+  const hasUnread = (allItems ?? []).some((n) => !n.is_read)
+  const showEmptyState = !isLoading && allItems.length === 0
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
@@ -209,7 +246,7 @@ export default function NotificationsScreen() {
         />
       )}
     </SafeAreaView>
-  );
+  )
 }
 
 // ── Styles ───────────────────────────────────────────────
@@ -222,39 +259,36 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: Spacing.md,
+    paddingHorizontal: Spacing.page,
     paddingVertical: Spacing.md,
+    backgroundColor: Colors.bgCard,
+    borderBottomWidth: 0.5,
+    borderBottomColor: Colors.divider,
   },
   title: {
-    fontSize: FontSize.heading1,
+    fontSize: FontSize.heading2,
     fontWeight: FontWeight.bold,
     color: Colors.textPrimary,
   },
   markAllRead: {
     fontSize: FontSize.small,
     color: Colors.primary,
-    fontWeight: FontWeight.semibold,
+    fontWeight: FontWeight.medium,
   },
-
-  // ── List ──
   list: {
-    paddingHorizontal: Spacing.md,
-    paddingBottom: Spacing.xl,
+    paddingVertical: Spacing.sm,
   },
-
-  // ── Notification Item ──
   notifItem: {
     flexDirection: "row",
     alignItems: "flex-start",
     gap: Spacing.sm,
     paddingVertical: Spacing.md,
-    paddingHorizontal: Spacing.sm,
-    borderRadius: Radius.md,
-    marginBottom: Spacing.sm,
-    backgroundColor: Colors.bgCard,
+    paddingHorizontal: Spacing.page,
+    borderBottomWidth: 0.5,
+    borderBottomColor: Colors.divider,
   },
   notifItemUnread: {
-    backgroundColor: Colors.primaryLight + "0D",
+    backgroundColor: Colors.primaryLight + "10",
   },
   iconCircle: {
     width: 40,
@@ -262,7 +296,6 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     justifyContent: "center",
     alignItems: "center",
-    marginTop: 2,
   },
   notifBody: {
     flex: 1,
@@ -276,8 +309,8 @@ const styles = StyleSheet.create({
   notifBodyText: {
     fontSize: FontSize.small,
     color: Colors.textSecondary,
-    lineHeight: 18,
     marginBottom: 4,
+    lineHeight: 18,
   },
   notifTime: {
     fontSize: FontSize.caption,
@@ -290,8 +323,6 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primary,
     marginTop: 6,
   },
-
-  // ── Empty State ──
   emptyState: {
     flex: 1,
     justifyContent: "center",
@@ -302,9 +333,7 @@ const styles = StyleSheet.create({
     fontSize: FontSize.body,
     color: Colors.textTertiary,
   },
-
-  // ── Footer ──
   footerLoader: {
     paddingVertical: Spacing.lg,
   },
-});
+})

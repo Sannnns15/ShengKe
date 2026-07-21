@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from "react";
+import React, { useState, useCallback, useEffect } from "react"
 import {
   View,
   Text,
@@ -12,67 +12,92 @@ import {
   KeyboardAvoidingView,
   Platform,
   Image,
-} from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Ionicons } from "@expo/vector-icons";
-import * as SecureStore from "expo-secure-store";
-import { getMyProfile, updateMyProfile, deleteAccount } from "../../../services/users";
-import { uploadMedia } from "../../../services/media";
-import { useImagePicker } from "../../../hooks/useImagePicker";
-import { Colors, Spacing, FontSize, FontWeight, Radius } from "../../../constants/theme";
-import { useAuthStore } from "../../../stores/authStore";
+} from "react-native"
+import { SafeAreaView } from "react-native-safe-area-context"
+import { useRouter } from "expo-router"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { Ionicons } from "@expo/vector-icons"
+import * as SecureStore from "expo-secure-store"
+import { getMyProfile, updateMyProfile, deleteAccount } from "../../../services/users"
+import { getMySettings, updateMySettings } from "../../../services/userSettings"
+import { uploadMedia } from "../../../services/media"
+import { useImagePicker } from "../../../hooks/useImagePicker"
+import { Colors, Spacing, FontSize, FontWeight, Radius } from "../../../constants/theme"
+import { useAuthStore } from "../../../stores/authStore"
 
-const DARK_MODE_KEY = "shengke_dark_mode";
+const DARK_MODE_KEY = "shengke_dark_mode"
+
+const PRIVACY_OPTIONS = [
+  { label: "仅自己", value: 0 },
+  { label: "好友", value: 1 },
+  { label: "互关", value: 2 },
+  { label: "公开", value: 3 },
+]
 
 // ── Settings Screen ─────────────────────────────────────
 export default function SettingsScreen() {
-  const router = useRouter();
-  const queryClient = useQueryClient();
-  const { logout } = useAuthStore();
+  const router = useRouter()
+  const queryClient = useQueryClient()
+  const { logout } = useAuthStore()
 
   // ── Profile form state ──
-  const [nickname, setNickname] = useState("");
-  const [bio, setBio] = useState("");
-  const [darkMode, setDarkMode] = useState(false);
+  const [nickname, setNickname] = useState("")
+  const [bio, setBio] = useState("")
+  const [darkMode, setDarkMode] = useState(false)
+
+  // ── User settings state ──
+  const [notificationEnabled, setNotificationEnabled] = useState(true)
+  const [privacyDefault, setPrivacyDefault] = useState(3)
 
   // ── Load profile ──
   const { data: profile, isLoading: profileLoading } = useQuery({
     queryKey: ["myProfile"],
     queryFn: getMyProfile,
-  });
+  })
+
+  // ── Load user settings ──
+  const { data: userSettings } = useQuery({
+    queryKey: ["mySettings"],
+    queryFn: getMySettings,
+  })
 
   useEffect(() => {
     if (profile) {
-      setNickname(profile.nickname ?? "");
-      setBio(profile.bio ?? "");
+      setNickname(profile.nickname ?? "")
+      setBio(profile.bio ?? "")
     }
-  }, [profile]);
+  }, [profile])
+
+  useEffect(() => {
+    if (userSettings) {
+      setNotificationEnabled(userSettings.notification_enabled)
+      setPrivacyDefault(userSettings.privacy_default)
+    }
+  }, [userSettings])
 
   // Load dark mode preference
   useEffect(() => {
     SecureStore.getItemAsync(DARK_MODE_KEY).then((val) => {
-      if (val === "true") setDarkMode(true);
-    });
-  }, []);
+      if (val === "true") setDarkMode(true)
+    })
+  }, [])
 
   // ── Image picker ──
-  const imagePicker = useImagePicker();
-  const [avatarUploading, setAvatarUploading] = useState(false);
+  const imagePicker = useImagePicker()
+  const [avatarUploading, setAvatarUploading] = useState(false)
 
   // ── Save profile mutation ──
   const saveProfileMutation = useMutation({
     mutationFn: (data: { nickname: string; bio: string }) =>
       updateMyProfile(data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["myProfile"] });
-      Alert.alert("保存成功", "个人资料已更新");
+      queryClient.invalidateQueries({ queryKey: ["myProfile"] })
+      Alert.alert("保存成功", "个人资料已更新")
     },
     onError: (err: Error) => {
-      Alert.alert("保存失败", err.message || "请稍后重试");
+      Alert.alert("保存失败", err.message || "请稍后重试")
     },
-  });
+  })
 
   // ── Avatar upload mutation ──
   const handleAvatarChange = useCallback(async () => {
@@ -80,66 +105,104 @@ export default function SettingsScreen() {
       {
         text: "拍照",
         onPress: async () => {
-          const uri = await imagePicker.pickFromCamera();
-          if (uri) await uploadNewAvatar(uri);
+          const uri = await imagePicker.pickFromCamera()
+          if (uri) await uploadNewAvatar(uri)
         },
       },
       {
         text: "从相册选择",
         onPress: async () => {
-          const uri = await imagePicker.pickFromGallery();
-          if (uri) await uploadNewAvatar(uri);
+          const uri = await imagePicker.pickFromGallery()
+          if (uri) await uploadNewAvatar(uri)
         },
       },
       { text: "取消", style: "cancel" },
-    ]);
-  }, [imagePicker]);
+    ])
+  }, [imagePicker])
 
-  const uploadNewAvatar = useCallback(async (uri: string) => {
-    setAvatarUploading(true);
-    try {
-      const media = await uploadMedia(uri);
-      await updateMyProfile({ avatar_url: media.url });
-      queryClient.invalidateQueries({ queryKey: ["myProfile"] });
-      Alert.alert("成功", "头像已更新");
-    } catch (err: any) {
-      Alert.alert("上传失败", err?.message || "请稍后重试");
-    } finally {
-      setAvatarUploading(false);
-    }
-  }, [queryClient]);
+  const uploadNewAvatar = useCallback(
+    async (uri: string) => {
+      setAvatarUploading(true)
+      try {
+        const media = await uploadMedia(uri)
+        await updateMyProfile({ avatar_url: media.url })
+        queryClient.invalidateQueries({ queryKey: ["myProfile"] })
+        Alert.alert("成功", "头像已更新")
+      } catch (err: any) {
+        Alert.alert("上传失败", err?.message || "请稍后重试")
+      } finally {
+        setAvatarUploading(false)
+      }
+    },
+    [queryClient]
+  )
 
   // ── Delete account mutation ──
   const deleteAccountMutation = useMutation({
     mutationFn: deleteAccount,
     onSuccess: async () => {
-      await logout();
-      router.replace("/(auth)/login");
+      await logout()
+      router.replace("/(auth)/login")
     },
     onError: (err: Error) => {
-      Alert.alert("操作失败", err.message || "注销账号失败，请稍后重试");
+      Alert.alert("操作失败", err.message || "注销账号失败，请稍后重试")
     },
-  });
+  })
+
+  // ── Save user settings mutation ──
+  const saveSettingsMutation = useMutation({
+    mutationFn: (data: { notification_enabled: boolean; privacy_default: number }) =>
+      updateMySettings(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["mySettings"] })
+      Alert.alert("保存成功", "偏好设置已更新")
+    },
+    onError: (err: Error) => {
+      Alert.alert("保存失败", err.message || "请稍后重试")
+    },
+  })
 
   // ── Handlers ──
   const handleSaveProfile = useCallback(() => {
     if (!nickname.trim()) {
-      Alert.alert("提示", "昵称不能为空");
-      return;
+      Alert.alert("提示", "昵称不能为空")
+      return
     }
     saveProfileMutation.mutate({
       nickname: nickname.trim(),
       bio: bio.trim(),
-    });
-  }, [nickname, bio, saveProfileMutation]);
+    })
+  }, [nickname, bio, saveProfileMutation])
 
   const handleDarkModeToggle = useCallback(
     async (value: boolean) => {
-      setDarkMode(value);
-      await SecureStore.setItemAsync(DARK_MODE_KEY, value ? "true" : "false");
+      setDarkMode(value)
+      await SecureStore.setItemAsync(DARK_MODE_KEY, value ? "true" : "false")
     },
     []
-  );
+  )
+
+  const handleNotificationToggle = useCallback(
+    (value: boolean) => {
+      setNotificationEnabled(value)
+      saveSettingsMutation.mutate({
+        notification_enabled: value,
+        privacy_default: privacyDefault,
+      })
+    },
+    [privacyDefault, saveSettingsMutation]
+  )
+
+  const handlePrivacyChange = useCallback(
+    (value: number) => {
+      setPrivacyDefault(value)
+      saveSettingsMutation.mutate({
+        notification_enabled: notificationEnabled,
+        privacy_default: value,
+      })
+    },
+    [notificationEnabled, saveSettingsMutation]
+  )
 
   const handleDeleteAccount = useCallback(() => {
     Alert.alert(
@@ -162,15 +225,15 @@ export default function SettingsScreen() {
                   onPress: () => deleteAccountMutation.mutate(),
                 },
               ]
-            );
+            )
           },
         },
       ]
-    );
-  }, [deleteAccountMutation]);
+    )
+  }, [deleteAccountMutation])
 
-  const isSaving = saveProfileMutation.isPending;
-  const isDeleting = deleteAccountMutation.isPending;
+  const isSaving = saveProfileMutation.isPending
+  const isDeleting = deleteAccountMutation.isPending
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
@@ -271,6 +334,54 @@ export default function SettingsScreen() {
             </TouchableOpacity>
           </View>
 
+          {/* ══ Section: 通知偏好 ══ */}
+          <Text style={styles.sectionTitle}>通知偏好</Text>
+          <View style={styles.card}>
+            <View style={styles.settingRow}>
+              <View style={styles.settingInfo}>
+                <Ionicons name="notifications-outline" size={20} color={Colors.textSecondary} />
+                <Text style={styles.settingLabel}>启用通知</Text>
+              </View>
+              <Switch
+                value={notificationEnabled}
+                onValueChange={handleNotificationToggle}
+                trackColor={{
+                  false: Colors.borderLight,
+                  true: Colors.primaryLight,
+                }}
+                thumbColor={notificationEnabled ? Colors.primary : "#f4f3f4"}
+              />
+            </View>
+          </View>
+
+          {/* ══ Section: 默认隐私 ══ */}
+          <Text style={styles.sectionTitle}>默认隐私</Text>
+          <View style={styles.card}>
+            {PRIVACY_OPTIONS.map((opt) => (
+              <TouchableOpacity
+                key={opt.value}
+                style={[
+                  styles.privacyRow,
+                  privacyDefault === opt.value && styles.privacyRowActive,
+                ]}
+                onPress={() => handlePrivacyChange(opt.value)}
+                activeOpacity={0.7}
+              >
+                <Text
+                  style={[
+                    styles.privacyLabel,
+                    privacyDefault === opt.value && styles.privacyLabelActive,
+                  ]}
+                >
+                  {opt.label}
+                </Text>
+                {privacyDefault === opt.value && (
+                  <Ionicons name="checkmark-circle" size={20} color={Colors.primary} />
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+
           {/* ══ Section: 偏好 ══ */}
           <Text style={styles.sectionTitle}>偏好</Text>
           <View style={styles.card}>
@@ -345,7 +456,7 @@ export default function SettingsScreen() {
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
-  );
+  )
 }
 
 // ── Styles ───────────────────────────────────────────────
@@ -501,6 +612,29 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary,
   },
 
+  // ── Privacy Row ──
+  privacyRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    borderRadius: Radius.sm,
+    marginBottom: Spacing.xs,
+    backgroundColor: Colors.bg,
+  },
+  privacyRowActive: {
+    backgroundColor: Colors.primaryLight + "30",
+  },
+  privacyLabel: {
+    fontSize: FontSize.body,
+    color: Colors.textPrimary,
+  },
+  privacyLabelActive: {
+    color: Colors.primary,
+    fontWeight: FontWeight.semibold,
+  },
+
   // ── Menu Row (Chevron) ──
   menuRow: {
     flexDirection: "row",
@@ -520,4 +654,4 @@ const styles = StyleSheet.create({
   spacer: {
     height: Spacing.xxl,
   },
-});
+})
