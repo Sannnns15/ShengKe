@@ -27,6 +27,7 @@ from app.services.moment import (
     update_privacy,
 )
 from app.models.media import Media
+from app.schemas.common import AuditRejected
 
 router = APIRouter()
 
@@ -39,7 +40,10 @@ async def create_moment_endpoint(
 ):
     """Create a new Moment."""
     data = body.model_dump(exclude={"media_ids"})
-    moment = await create_moment(db, user_id, data)
+    try:
+        moment = await create_moment(db, user_id, data)
+    except AuditRejected as e:
+        return Result(code=1420, message=e.reason, data=None)
 
     # Associate media with moment
     if body.media_ids:

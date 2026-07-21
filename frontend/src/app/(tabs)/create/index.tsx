@@ -18,7 +18,7 @@ import { useMutation } from "@tanstack/react-query";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { createMoment } from "../../../services/moments";
-import { uploadMedia } from "../../../services/media";
+import { uploadMedia, uploadMediaDirect } from "../../../services/media";
 import { Colors, Spacing, FontSize, FontWeight, Radius } from "../../../constants/theme";
 import type { CreateMomentParams } from "../../../types/api";
 
@@ -126,10 +126,13 @@ export default function CreateScreen() {
       if (selectedImages.length > 0) {
         const mediaIds: string[] = [];
         for (const uri of selectedImages) {
-          // Upload returns { url, object_key } — for now pass the URI
-          // as a placeholder. Once backend provides media_id in the
-          // response, use that instead.
-          const result = await uploadMedia(uri);
+          // Try OSS direct upload first, fall back to server-mediated upload
+          let result;
+          try {
+            result = await uploadMediaDirect(uri);
+          } catch {
+            result = await uploadMedia(uri);
+          }
           mediaIds.push(result.url);
         }
         params.media_ids = mediaIds;

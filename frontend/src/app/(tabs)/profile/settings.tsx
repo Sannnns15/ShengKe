@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from "react"
+import React, { useState, useCallback, useEffect, useRef } from "react"
 import {
   View,
   Text,
@@ -20,9 +20,12 @@ import { Ionicons } from "@expo/vector-icons"
 import * as SecureStore from "expo-secure-store"
 import { getMyProfile, updateMyProfile, deleteAccount } from "../../../services/users"
 import { getMySettings, updateMySettings } from "../../../services/userSettings"
-import { uploadMedia } from "../../../services/media"
+import { uploadMedia, uploadMediaDirect } from "../../../services/media"
+import { requestExport, getExportStatus, getDownloadUrl } from "../../../services/export"
+import type { ExportTask, ExportStatus } from "../../../services/export"
 import { useImagePicker } from "../../../hooks/useImagePicker"
 import { Colors, Spacing, FontSize, FontWeight, Radius } from "../../../constants/theme"
+import * as Linking from "expo-linking"
 import { useAuthStore } from "../../../stores/authStore"
 
 const DARK_MODE_KEY = "shengke_dark_mode"
@@ -124,7 +127,13 @@ export default function SettingsScreen() {
     async (uri: string) => {
       setAvatarUploading(true)
       try {
-        const media = await uploadMedia(uri)
+        // Try OSS direct upload first, fall back to server-mediated upload
+        let media
+        try {
+          media = await uploadMediaDirect(uri)
+        } catch {
+          media = await uploadMedia(uri)
+        }
         await updateMyProfile({ avatar_url: media.url })
         queryClient.invalidateQueries({ queryKey: ["myProfile"] })
         Alert.alert("成功", "头像已更新")
@@ -234,6 +243,66 @@ export default function SettingsScreen() {
 
   const isSaving = saveProfileMutation.isPending
   const isDeleting = deleteAccountMutation.isPending
+
+  // ── Export state and handlers ──
+  const [exportTask, setExportTask] = useState<ExportTask | ExportStatus | null>(null)
+  const [exportPending, setExportPending] = useState(false)
+  const exportIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  const handleStartExport = useCallback(async () => {
+    setExportPending(true)
+    try {
+      const task = await requestExport()
+      setExportTask(task)
+    } catch (err: any) {
+      Alert.alert("导出失败", err?.message || "无法创建导出任务")
+    } finally {
+      setExportPending(false)
+    }
+  }, [])
+
+  const handleResetExport = useCallback(() => {
+    if (exportIntervalRef.current) {
+      clearInterval(exportIntervalRef.current)
+      exportIntervalRef.current = null
+    }
+    setExportTask(null)
+  }, [])
+
+  const handleDownloadExport = useCallback(() => {
+    if (!exportTask) return
+    const url = getDownloadUrl(exportTask.task_id)
+    Linking.openURL(url)
+  }, [exportTask])
+
+  // Poll export status every 2 seconds while pending/processing
+  useEffect(() => {
+    if (!exportTask || exportTask.status === "done" || exportTask.status === "failed") {
+      return
+    }
+
+    exportIntervalRef.current = setInterval(async () => {
+      try {
+        const status: ExportStatus = await getExportStatus(exportTask.task_id)
+        setExportTask(status)
+        if (status.status === "done" || status.status === "failed") {
+          if (exportIntervalRef.current) {
+            clearInterval(exportIntervalRef.current)
+            exportIntervalRef.current = null
+          }
+        }
+      } catch {
+        // Silently retry on next poll
+      }
+    }, 2000)
+
+    return () => {
+      if (exportIntervalRef.current) {
+        clearInterval(exportIntervalRef.current)
+        exportIntervalRef.current = null
+      }
+    }
+  }, [exportTask?.task_id, exportTask?.status])
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
@@ -417,19 +486,82 @@ export default function SettingsScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* ══ Section: 数据 ══ */}
-          <Text style={styles.sectionTitle}>数据</Text>
+          {/* ══ Section: 数据管理 ══ */}
+          <Text style={styles.sectionTitle}>数据管理</Text>
           <View style={styles.card}>
-            <TouchableOpacity
-              style={styles.menuRow}
-              onPress={() => Alert.alert("提示", "数据导出功能即将上线")}
-            >
-              <View style={styles.settingInfo}>
-                <Ionicons name="download-outline" size={20} color={Colors.textSecondary} />
-                <Text style={styles.settingLabel}>导出数据</Text>
+            {exportTask ? (
+              <View style={styles.exportStatusContainer}>
+                <View style={styles.exportStatusRow}>
+                  <Ionicons
+                    name={
+                      exportTask.status === "done"
+                        ? "checkmark-circle"
+                        : exportTask.status === "failed"
+                          ? "close-circle"
+                          : "cloud-download-outline"
+                    }
+                    size={20}
+                    color={
+                      exportTask.status === "done"
+                        ? "#34C759"
+                        : exportTask.status === "failed"
+                          ? Colors.error
+                          : Colors.primary
+                    }
+                  />
+                  <Text style={styles.exportStatusText}>
+                    {exportTask.status === "pending"
+                      ? "等待处理…"
+                      : exportTask.status === "processing"
+                        ? "正在导出…"
+                        : exportTask.status === "done"
+                          ? "导出完成"
+                          : "导出失败"}
+                  </Text>
+                </View>
+                {exportTask.status === "processing" && (
+                  <ActivityIndicator size="small" color={Colors.primary} style={styles.exportSpinner} />
+                )}
+                {exportTask.status === "done" && (
+                  <TouchableOpacity
+                    style={styles.exportDownloadBtn}
+                    onPress={handleDownloadExport}
+                  >
+                    <Ionicons name="download" size={16} color={Colors.textInverse} />
+                    <Text style={styles.exportDownloadBtnText}>下载数据</Text>
+                  </TouchableOpacity>
+                )}
+                {exportTask.status === "failed" && (
+                  <Text style={[styles.exportErrorHint, { marginTop: Spacing.sm }]}>
+                    {("error" in exportTask ? (exportTask as ExportStatus).error : null) || "导出失败，请稍后重试"}
+                  </Text>
+                )}
+                {(exportTask.status === "done" || exportTask.status === "failed") && (
+                  <TouchableOpacity
+                    style={styles.exportResetBtn}
+                    onPress={handleResetExport}
+                  >
+                    <Text style={styles.exportResetBtnText}>重新导出</Text>
+                  </TouchableOpacity>
+                )}
               </View>
-              <Ionicons name="chevron-forward" size={18} color={Colors.textTertiary} />
-            </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                style={styles.menuRow}
+                onPress={handleStartExport}
+                disabled={exportPending}
+              >
+                <View style={styles.settingInfo}>
+                  <Ionicons name="download-outline" size={20} color={Colors.textSecondary} />
+                  <Text style={styles.settingLabel}>导出我的数据</Text>
+                </View>
+                {exportPending ? (
+                  <ActivityIndicator size="small" color={Colors.primary} />
+                ) : (
+                  <Ionicons name="chevron-forward" size={18} color={Colors.textTertiary} />
+                )}
+              </TouchableOpacity>
+            )}
           </View>
 
           {/* ══ Section: 危险操作 ══ */}
@@ -651,6 +783,50 @@ const styles = StyleSheet.create({
   },
 
   // ── Spacer ──
+  // ── Export ──
+  exportStatusContainer: {
+    paddingVertical: Spacing.sm,
+    gap: Spacing.sm,
+  },
+  exportStatusRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  exportStatusText: {
+    fontSize: FontSize.body,
+    color: Colors.textPrimary,
+  },
+  exportSpinner: {
+    marginTop: Spacing.xs,
+  },
+  exportDownloadBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.xs,
+    backgroundColor: Colors.primary,
+    borderRadius: Radius.sm,
+    paddingVertical: Spacing.sm,
+    marginTop: Spacing.xs,
+  },
+  exportDownloadBtnText: {
+    fontSize: FontSize.body,
+    color: Colors.textInverse,
+    fontWeight: FontWeight.semibold,
+  },
+  exportErrorHint: {
+    fontSize: FontSize.small,
+    color: Colors.error,
+  },
+  exportResetBtn: {
+    alignSelf: "flex-start",
+    marginTop: Spacing.xs,
+  },
+  exportResetBtnText: {
+    fontSize: FontSize.small,
+    color: Colors.textAccent,
+  },
   spacer: {
     height: Spacing.xxl,
   },

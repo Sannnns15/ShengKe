@@ -12,6 +12,7 @@ from app.models.follow import Follow
 from app.models.like import Like
 from app.models.user import User
 from app.models.tag import Tag, MomentTag
+from app.services.audit import audit_text
 
 
 async def _ensure_tags(
@@ -42,11 +43,20 @@ async def create_moment(
     """Create a new Moment.
 
     Handles tag_names from data dict to create MomentTag associations.
+    Before committing, runs content through basic audit check.
     """
+    # Content audit check
+    content = data.get("content", "")
+    title = data.get("title", "")
+    audit_result = audit_text(content)
+    if not audit_result["passed"]:
+        from app.schemas.common import AuditRejected
+        raise AuditRejected(audit_result["reason"])
+
     moment = Moment(
         user_id=user_id,
-        title=data.get("title"),
-        content=data.get("content"),
+        title=title,
+        content=content,
         mood=data.get("mood"),
         weather=data.get("weather"),
         location_name=data.get("location_name"),

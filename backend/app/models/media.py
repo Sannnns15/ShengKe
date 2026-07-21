@@ -51,6 +51,9 @@ class Media(Base):
     height: Mapped[Optional[int]] = mapped_column(
         Integer, nullable=True
     )
+    blurhash: Mapped[Optional[str]] = mapped_column(
+        String(120), nullable=True
+    )
     status: Mapped[int] = mapped_column(
         SmallInteger, default=0, nullable=False, comment="0=pending, 1=uploaded, 2=failed"
     )

@@ -14,6 +14,13 @@ class UploadUrlResponse(BaseModel):
     object_key: str
 
 
+# ── Upload Signature (direct to OSS) ──
+
+class UploadSignatureResponse(BaseModel):
+    url: str
+    object_key: str
+
+
 # ── Confirm Upload ──
 
 class ConfirmUploadRequest(BaseModel):
@@ -34,6 +41,7 @@ class MediaResponse(BaseModel):
     file_size: int | None = None
     width: int | None = None
     height: int | None = None
+    blurhash: str | None = None
     status: int
     created_at: datetime
     updated_at: datetime

@@ -11,6 +11,7 @@ from app.core.deps import get_db, get_current_user_id
 from app.schemas.common import Result
 from app.schemas.media import (
     UploadUrlResponse,
+    UploadSignatureResponse,
     ConfirmUploadRequest,
     MediaResponse,
 )
@@ -23,6 +24,7 @@ from app.services.media import (
 )
 from app.models.media import Media
 from app.utils import uuid_v7
+from app.utils.blurhash_utils import compute_blurhash
 
 router = APIRouter()
 
@@ -36,7 +38,7 @@ async def upload_file(
     """Direct file upload for development.
 
     Saves file to local uploads/ directory, creates a Media record
-    with status=1 (uploaded), and returns the URL + object_key.
+    with status=1 (uploaded), computes blurhash, and returns URL.
     """
     # Determine file extension
     filename = file.filename or "upload"
@@ -53,6 +55,11 @@ async def upload_file(
     with open(file_path, "wb") as f:
         f.write(content)
 
+    # Compute blurhash for images
+    blurhash = None
+    if file.content_type and file.content_type.startswith("image/"):
+        blurhash = compute_blurhash(content)
+
     # Create Media record
     media_type = "image"
     if file.content_type:
@@ -67,6 +74,7 @@ async def upload_file(
         mime_type=file.content_type,
         file_size=len(content),
         media_type=media_type,
+        blurhash=blurhash,
         status=1,  # uploaded
     )
     db.add(media)
@@ -84,14 +92,53 @@ async def upload_file(
 async def get_upload_url(
     file_name: str = Query(..., description="Original file name, e.g. photo.jpg"),
     content_type: str = Query(..., description="MIME type, e.g. image/jpeg"),
+    db: AsyncSession = Depends(get_db),
+    user_id: UUID = Depends(get_current_user_id),
 ):
-    """Generate a presigned upload URL for a file.
+    """Generate a presigned upload URL for a file (legacy, creates pending record).
 
     Returns a URL the client can PUT to, along with the object_key
     that must be used in the subsequent confirm-upload call.
     """
     result = await generate_upload_url(file_name, content_type)
+    # Create a pending Media record so the object_key is tracked
+    media_info = {
+        "object_key": result["object_key"],
+        "mime_type": content_type,
+        "media_type": "image",
+    }
+    await create_media_record(db, user_id, media_info)
     return Result(code=0, message="success", data=UploadUrlResponse(**result))
+
+
+@router.post("/upload-signature", response_model=Result[UploadSignatureResponse])
+async def get_upload_signature(
+    file_name: str = Query(..., description="Original file name, e.g. photo.jpg"),
+    content_type: str = Query(..., description="MIME type, e.g. image/jpeg"),
+    db: AsyncSession = Depends(get_db),
+    user_id: UUID = Depends(get_current_user_id),
+):
+    """Return a presigned URL for direct-to-OSS upload (no file received).
+
+    The client PUTs the file directly to the returned URL, then calls
+    POST /media/confirm with the object_key.
+    """
+    result = await generate_upload_url(file_name, content_type)
+    # Create a pending Media record
+    media_info = {
+        "object_key": result["object_key"],
+        "mime_type": content_type,
+        "media_type": "image",
+    }
+    await create_media_record(db, user_id, media_info)
+    return Result(
+        code=0,
+        message="success",
+        data=UploadSignatureResponse(
+            url=result["url"],
+            object_key=result["object_key"],
+        ),
+    )
 
 
 @router.post("/confirm", response_model=Result[MediaResponse])

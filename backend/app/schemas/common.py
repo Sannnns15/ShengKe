@@ -44,3 +44,13 @@ class CursorPaginatedResult(BaseModel, Generic[T]):
     message: str = "success"
     data: list[T] = []
     meta: CursorMeta = CursorMeta()
+
+
+# ── Audit ──
+
+
+class AuditRejected(Exception):
+    """Raised when content fails content audit."""
+    def __init__(self, reason: str):
+        self.reason = reason
+        super().__init__(reason)

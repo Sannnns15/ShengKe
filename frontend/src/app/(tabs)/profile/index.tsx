@@ -15,7 +15,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Ionicons } from "@expo/vector-icons";
 import { getMyProfile, getUserProfile, updateMyProfile } from "../../../services/users";
-import { uploadMedia } from "../../../services/media";
+import { uploadMedia, uploadMediaDirect } from "../../../services/media";
 import { useAuthStore } from "../../../stores/authStore";
 import { useUserMoments } from "../../../hooks/useMomentFeed";
 import { useLikeToggle } from "../../../hooks/useLikeToggle";
@@ -135,7 +135,13 @@ export default function ProfileScreen() {
     async (uri: string) => {
       setAvatarUploading(true);
       try {
-        const media = await uploadMedia(uri);
+        // Try OSS direct upload first, fall back to server-mediated upload
+        let media;
+        try {
+          media = await uploadMediaDirect(uri);
+        } catch {
+          media = await uploadMedia(uri);
+        }
         await updateMyProfile({ avatar_url: media.url });
         queryClient.invalidateQueries({ queryKey: ["myProfile"] });
         Alert.alert("成功", "头像已更新");

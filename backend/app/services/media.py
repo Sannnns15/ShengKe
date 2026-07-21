@@ -51,19 +51,34 @@ async def generate_upload_url(
             "object_key": object_key,
         }
 
-    # TODO: implement real OSS presigned URL generation
-    # Example with alibabacloud_oss_v2:
-    #   import oss2
-    #   auth = oss2.Auth(settings.ali_oss_access_key_id, settings.ali_oss_access_key_secret)
-    #   bucket = oss2.Bucket(auth, settings.ali_oss_endpoint, settings.ali_oss_bucket)
-    #   url = bucket.sign_url('PUT', object_key, expires=3600)
-    raise NotImplementedError("OSS presigned URL generation not yet implemented")
+    # Real OSS presigned URL via oss2
+    import oss2
+    settings = get_settings()
+    auth = oss2.Auth(
+        settings.ali_oss_access_key_id,
+        settings.ali_oss_access_key_secret,
+    )
+    bucket = oss2.Bucket(
+        auth,
+        settings.ali_oss_endpoint,
+        settings.ali_oss_bucket,
+    )
+    # 3600 seconds = 1 hour expiry
+    url = bucket.sign_url(
+        'PUT', object_key, expires=3600,
+        headers={'Content-Type': content_type},
+    )
+    return {
+        "url": url,
+        "object_key": object_key,
+    }
 
 
 async def create_media_record(
     db: AsyncSession,
     user_id: uuid.UUID,
     file_info: dict[str, Any],
+    blurhash: str | None = None,
 ) -> Media:
     """Create a Media record for a pending upload."""
     media = Media(
@@ -72,6 +87,7 @@ async def create_media_record(
         mime_type=file_info.get("mime_type"),
         file_size=file_info.get("file_size"),
         media_type=file_info.get("media_type", "image"),
+        blurhash=blurhash,
         status=0,  # pending
     )
     db.add(media)
