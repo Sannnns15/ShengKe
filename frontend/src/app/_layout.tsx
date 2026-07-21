@@ -1,10 +1,11 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useCallback } from "react";
 import { Stack, useSegments, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { ActivityIndicator, View } from "react-native";
+import { ActivityIndicator, View, Appearance } from "react-native";
 import { AuthProvider, useAuthStore } from "../stores/authStore";
+import { useThemeStore } from "../stores/themeStore";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -14,6 +15,31 @@ const queryClient = new QueryClient({
     },
   },
 });
+
+// ── Theme initializer ─────────────────────────────────
+// Loads persisted theme mode and listens for system appearance changes.
+function ThemeInitializer({ children }: { children: React.ReactNode }) {
+  const mode = useThemeStore((s) => s.mode);
+  const _load = useThemeStore((s) => s._load);
+  const setMode = useThemeStore((s) => s.setMode);
+
+  useEffect(() => {
+    _load();
+  }, [_load]);
+
+  // Listen for system appearance changes when in 'system' mode
+  useEffect(() => {
+    if (mode !== 'system') return;
+
+    const subscription = Appearance.addChangeListener(({ colorScheme }) => {
+      useThemeStore.setState({ isDark: colorScheme === 'dark' });
+    });
+
+    return () => subscription.remove();
+  }, [mode]);
+
+  return <>{children}</>;
+}
 
 // ── Route guard ────────────────────────────────────────
 // Redirect to login if the user is not authenticated.
@@ -49,6 +75,7 @@ function SplashScreen() {
 
 export default function RootLayout() {
   const isLoading = useAuthStore((s) => s.isLoading);
+  const isDark = useThemeStore((s) => s.isDark);
 
   // Mount route guard
   useProtectedRoute();
@@ -57,16 +84,18 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
-          <StatusBar style="auto" />
-          {isLoading ? (
-            <SplashScreen />
-          ) : (
-            <Stack screenOptions={{ headerShown: false }}>
-              <Stack.Screen name="(auth)" />
-              <Stack.Screen name="(tabs)" />
-              <Stack.Screen name="ai" />
-            </Stack>
-          )}
+          <ThemeInitializer>
+            <StatusBar style={isDark ? "light" : "dark"} />
+            {isLoading ? (
+              <SplashScreen />
+            ) : (
+              <Stack screenOptions={{ headerShown: false }}>
+                <Stack.Screen name="(auth)" />
+                <Stack.Screen name="(tabs)" />
+                <Stack.Screen name="ai" />
+              </Stack>
+            )}
+          </ThemeInitializer>
         </AuthProvider>
       </QueryClientProvider>
     </GestureHandlerRootView>

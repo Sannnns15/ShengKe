@@ -25,6 +25,7 @@ import { requestExport, getExportStatus, getDownloadUrl } from "../../../service
 import type { ExportTask, ExportStatus } from "../../../services/export"
 import { useImagePicker } from "../../../hooks/useImagePicker"
 import { Colors, Spacing, FontSize, FontWeight, Radius } from "../../../constants/theme"
+import { useThemeStore, type ThemeMode } from "../../../stores/themeStore"
 import * as Linking from "expo-linking"
 import { useAuthStore } from "../../../stores/authStore"
 
@@ -42,6 +43,10 @@ export default function SettingsScreen() {
   const router = useRouter()
   const queryClient = useQueryClient()
   const { logout } = useAuthStore()
+
+  // ── Theme store ──
+  const themeMode = useThemeStore((s) => s.mode)
+  const setThemeMode = useThemeStore((s) => s.setMode)
 
   // ── Profile form state ──
   const [nickname, setNickname] = useState("")
@@ -78,7 +83,7 @@ export default function SettingsScreen() {
     }
   }, [userSettings])
 
-  // Load dark mode preference
+  // Load dark mode preference (legacy — we now use themeStore)
   useEffect(() => {
     SecureStore.getItemAsync(DARK_MODE_KEY).then((val) => {
       if (val === "true") setDarkMode(true)
@@ -469,6 +474,45 @@ export default function SettingsScreen() {
                 thumbColor={darkMode ? Colors.primary : "#f4f3f4"}
               />
             </View>
+          </View>
+
+          {/* ══ Section: 主题 ══ */}
+          <Text style={styles.sectionTitle}>主题</Text>
+          <View style={styles.card}>
+            {([
+              { label: "跟随系统", value: "system" as ThemeMode, icon: "phone-portrait-outline" as const },
+              { label: "浅色", value: "light" as ThemeMode, icon: "sunny-outline" as const },
+              { label: "深色", value: "dark" as ThemeMode, icon: "moon-outline" as const },
+            ]).map((option) => (
+              <TouchableOpacity
+                key={option.value}
+                style={[
+                  styles.privacyRow,
+                  themeMode === option.value && styles.privacyRowActive,
+                ]}
+                onPress={() => setThemeMode(option.value)}
+                activeOpacity={0.7}
+              >
+                <View style={styles.settingInfo}>
+                  <Ionicons
+                    name={option.icon}
+                    size={20}
+                    color={themeMode === option.value ? Colors.primary : Colors.textSecondary}
+                  />
+                  <Text
+                    style={[
+                      styles.privacyLabel,
+                      themeMode === option.value && styles.privacyLabelActive,
+                    ]}
+                  >
+                    {option.label}
+                  </Text>
+                </View>
+                {themeMode === option.value && (
+                  <Ionicons name="checkmark-circle" size={20} color={Colors.primary} />
+                )}
+              </TouchableOpacity>
+            ))}
           </View>
 
           {/* ══ Section: 账号安全 ══ */}

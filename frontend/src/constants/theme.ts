@@ -52,6 +52,56 @@ export const Colors = {
   overlayLight: 'rgba(44, 36, 22, 0.15)',
 } as const;
 
+// ── Dark Mode Colors ────────────────────────────────────
+export const DarkColors = {
+  // Core
+  primary: '#FF6B6B',
+  primaryLight: '#FF8E8E',
+  primaryDark: '#D45050',
+
+  // Backgrounds
+  bg: '#1A1A2E',
+  bgCard: '#16213E',
+  bgCardElevated: '#1A1A3E',
+  bgSecondary: '#0F3460',
+  bgTertiary: '#1A1A3E',
+
+  // Text
+  textPrimary: '#E8E8E8',
+  textSecondary: '#B0B0B0',
+  textTertiary: '#808080',
+  textInverse: '#1A1A2E',
+  textAccent: '#FF6B6B',
+
+  // Borders & Dividers
+  border: '#2A2A4A',
+  borderLight: '#3A3A5A',
+  divider: '#3A3A5A',
+
+  // Status
+  success: '#6AAA6A',
+  warning: '#D4A050',
+  error: '#D46A6A',
+  info: '#6A9AC0',
+
+  // Mood colors
+  moodHappy: '#E8A676',
+  moodSad: '#7A8A9A',
+  moodCalm: '#7AAA7A',
+  moodAngry: '#C47A7A',
+  moodWarm: '#D49A6A',
+  moodCold: '#7A9AB0',
+
+  // Shadows
+  shadowSm: 'rgba(0, 0, 0, 0.2)',
+  shadowMd: 'rgba(0, 0, 0, 0.3)',
+  shadowLg: 'rgba(0, 0, 0, 0.4)',
+
+  // Overlay
+  overlay: 'rgba(0, 0, 0, 0.6)',
+  overlayLight: 'rgba(0, 0, 0, 0.3)',
+} as const;
+
 // ── Spacing (8-point grid) ──────────────────────────────
 export const Spacing = {
   xs: 4,

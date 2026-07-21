@@ -24,6 +24,7 @@ class CreateMomentRequest(BaseModel):
 
 class CreateMomentResponseData(BaseModel):
     id: UUID
+    user_id: UUID
     created_at: datetime
     ai_tags: list[str] | None = None
     ai_summary: str | None = None

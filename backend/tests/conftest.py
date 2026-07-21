@@ -7,6 +7,7 @@ Usage (from project root / backend):
 from __future__ import annotations
 
 import os
+import random
 from typing import AsyncGenerator
 
 import pytest_asyncio
@@ -49,6 +50,40 @@ assert "shengke_test" in settings.database_url, (
 # Override the app's get_db dependency to use our test session factory.
 # We do this by modifying the app's dependency_overrides.
 from app.core import database  # noqa: E402
+
+
+@pytest_asyncio.fixture
+async def auth_headers(test_client) -> dict:
+    """Register a test user and return auth headers."""
+    phone = f"138{random.randint(10000000, 99999999)}"
+    payload = {
+        "phone": phone,
+        "password": "Test12345!",
+        "code": "123456",
+        "nickname": f"test_user_{random.randint(1000, 9999)}",
+    }
+    resp = await test_client.post("/api/v1/auth/register", json=payload)
+    assert resp.status_code == 200, f"auth_headers fixture failed: {resp.text}"
+    data = resp.json()["data"]
+    access_token = data["access_token"]
+    return {"Authorization": f"Bearer {access_token}"}
+
+
+@pytest_asyncio.fixture
+async def second_user_headers(test_client) -> dict:
+    """Register another test user for multi-user tests."""
+    phone = f"138{random.randint(10000000, 99999999)}"
+    payload = {
+        "phone": phone,
+        "password": "Test12345!",
+        "code": "123456",
+        "nickname": f"test_user_second_{random.randint(1000, 9999)}",
+    }
+    resp = await test_client.post("/api/v1/auth/register", json=payload)
+    assert resp.status_code == 200, f"second_user_headers fixture failed: {resp.text}"
+    data = resp.json()["data"]
+    access_token = data["access_token"]
+    return {"Authorization": f"Bearer {access_token}"}
 
 
 @pytest_asyncio.fixture(scope="function")

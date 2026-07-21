@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -8,16 +8,27 @@ import {
   TouchableOpacity,
   TextInput,
   ActivityIndicator,
+  ScrollView,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useInfiniteQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getMomentFeed } from "../../../services/moments";
+import { searchMoments } from "../../../services/search";
 import { formatRelativeTime } from "../../../utils/format";
 import { Colors, Spacing, FontSize, FontWeight, Radius } from "../../../constants/theme";
 import { PAGE_SIZE } from "../../../constants/config";
 import type { MomentFeedItem, PaginatedData } from "../../../types/api";
+
+// ── Constants ──────────────────────────────────────────
+const SEARCH_HISTORY_KEY = "@shengke_search_history";
+const MAX_HISTORY = 10;
+const SEARCH_DEBOUNCE_MS = 500;
+
+// ── Types ──────────────────────────────────────────────
+type ViewMode = "default" | "search";
 
 // ── MomentCard (shared style with home, adapted for explore) ──
 function MomentCard({
@@ -97,7 +108,7 @@ function MomentCard({
 }
 
 // ── Empty State ────────────────────────────────────────
-function EmptyState() {
+function EmptyState({ message, submessage }: { message: string; submessage?: string }) {
   return (
     <View style={styles.empty}>
       <Ionicons
@@ -105,8 +116,97 @@ function EmptyState() {
         size={64}
         color={Colors.textTertiary}
       />
-      <Text style={styles.emptyText}>暂无公开生刻</Text>
-      <Text style={styles.emptySubtext}>还没有人发布公开记录</Text>
+      <Text style={styles.emptyText}>{message}</Text>
+      {submessage && <Text style={styles.emptySubtext}>{submessage}</Text>}
+    </View>
+  );
+}
+
+// ── Search Empty State ─────────────────────────────────
+function SearchEmptyState({ query }: { query: string }) {
+  return (
+    <View style={styles.empty}>
+      <Ionicons
+        name="search-outline"
+        size={64}
+        color={Colors.textTertiary}
+      />
+      <Text style={styles.emptyText}>未找到 "{query}" 相关记录</Text>
+      <Text style={styles.emptySubtext}>试试其他关键词</Text>
+    </View>
+  );
+}
+
+// ── Hot Tags Section ──────────────────────────────────
+function HotTagsSection({
+  tags,
+  onTagPress,
+}: {
+  tags: string[];
+  onTagPress: (tag: string) => void;
+}) {
+  if (tags.length === 0) return null;
+
+  return (
+    <View style={styles.hotTagsContainer}>
+      <Text style={styles.hotTagsTitle}>热门标签</Text>
+      <View style={styles.hotTagsRow}>
+        {tags.map((tag) => (
+          <TouchableOpacity
+            key={tag}
+            style={styles.hotTag}
+            activeOpacity={0.7}
+            onPress={() => onTagPress(tag)}
+          >
+            <Text style={styles.hotTagText}>{tag}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+// ── Search History ────────────────────────────────────
+function SearchHistory({
+  history,
+  onSelect,
+  onClearSingle,
+  onClearAll,
+}: {
+  history: string[];
+  onSelect: (query: string) => void;
+  onClearSingle: (index: number) => void;
+  onClearAll: () => void;
+}) {
+  if (history.length === 0) return null;
+
+  return (
+    <View style={styles.historyContainer}>
+      <View style={styles.historyHeader}>
+        <Text style={styles.historyTitle}>搜索历史</Text>
+        <TouchableOpacity onPress={onClearAll} activeOpacity={0.6}>
+          <Text style={styles.historyClearAll}>清除全部</Text>
+        </TouchableOpacity>
+      </View>
+      {history.map((item, index) => (
+        <TouchableOpacity
+          key={`${item}-${index}`}
+          style={styles.historyItem}
+          activeOpacity={0.7}
+          onPress={() => onSelect(item)}
+        >
+          <Ionicons name="time-outline" size={16} color={Colors.textTertiary} />
+          <Text style={styles.historyText} numberOfLines={1}>
+            {item}
+          </Text>
+          <TouchableOpacity
+            onPress={() => onClearSingle(index)}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Ionicons name="close" size={16} color={Colors.textTertiary} />
+          </TouchableOpacity>
+        </TouchableOpacity>
+      ))}
     </View>
   );
 }
@@ -114,17 +214,68 @@ function EmptyState() {
 // ── Main Screen ────────────────────────────────────────
 export default function ExploreScreen() {
   const router = useRouter();
-  const [searchQuery, setSearchQuery] = useState("");
+  const searchInputRef = useRef<TextInput>(null);
 
+  // ── Search state ──
+  const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
+  const [viewMode, setViewMode] = useState<ViewMode>("default");
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const [searchHistory, setSearchHistory] = useState<string[]>([]);
+
+  // ── Load search history on mount ──
+  useEffect(() => {
+    AsyncStorage.getItem(SEARCH_HISTORY_KEY).then((val) => {
+      if (val) {
+        try {
+          setSearchHistory(JSON.parse(val));
+        } catch {
+          // ignore
+        }
+      }
+    });
+  }, []);
+
+  // ── Debounce search query ──
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setDebouncedQuery("");
+      setViewMode("default");
+      return;
+    }
+    const timer = setTimeout(() => {
+      setDebouncedQuery(searchQuery.trim());
+    }, SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // ── Save search history ──
+  const saveSearchHistory = useCallback(async (query: string) => {
+    try {
+      const raw = await AsyncStorage.getItem(SEARCH_HISTORY_KEY);
+      let history: string[] = raw ? JSON.parse(raw) : [];
+      history = history.filter((h) => h !== query);
+      history.unshift(query);
+      if (history.length > MAX_HISTORY) {
+        history = history.slice(0, MAX_HISTORY);
+      }
+      await AsyncStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(history));
+      setSearchHistory(history);
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  // ── Default explore feed query ──
   const {
-    data,
-    fetchNextPage,
-    hasNextPage,
-    isFetchingNextPage,
-    isLoading,
-    isError,
-    refetch,
-    isRefetching,
+    data: exploreData,
+    fetchNextPage: fetchExploreNext,
+    hasNextPage: hasExploreNext,
+    isFetchingNextPage: isFetchingExploreNext,
+    isLoading: isExploreLoading,
+    isError: isExploreError,
+    refetch: refetchExplore,
+    isRefetching: isExploreRefetching,
   } = useInfiniteQuery<PaginatedData<MomentFeedItem>>({
     queryKey: ["exploreFeed"],
     queryFn: ({ pageParam }) =>
@@ -139,27 +290,118 @@ export default function ExploreScreen() {
     },
   });
 
-  // Flatten paginated results
-  const moments: MomentFeedItem[] =
-    data?.pages.flatMap((page) => page.items) ?? [];
+  // ── Search query ──
+  const {
+    data: searchData,
+    fetchNextPage: fetchSearchNext,
+    hasNextPage: hasSearchNext,
+    isFetchingNextPage: isFetchingSearchNext,
+    isLoading: isSearchLoading,
+    isError: isSearchError,
+    refetch: refetchSearch,
+  } = useInfiniteQuery<PaginatedData<MomentFeedItem>>({
+    queryKey: ["searchMoments", debouncedQuery],
+    queryFn: ({ pageParam }) =>
+      searchMoments(debouncedQuery, pageParam as number, PAGE_SIZE),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) => {
+      const { page, page_size, total } = lastPage.meta;
+      if (page * page_size < total) {
+        return page + 1;
+      }
+      return undefined;
+    },
+    enabled: debouncedQuery.length > 0,
+  });
 
-  const onRefresh = useCallback(() => {
-    refetch();
-  }, [refetch]);
+  // ── Extract hot tags from explore feed ──
+  const hotTags = useMemo(() => {
+    const tags = exploreData?.pages.flatMap((page) =>
+      page.items.flatMap((item) => item.ai_tags || [])
+    ) ?? [];
+    const freq: Record<string, number> = {};
+    for (const tag of tags) {
+      freq[tag] = (freq[tag] || 0) + 1;
+    }
+    return Object.entries(freq)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 10)
+      .map(([tag]) => tag);
+  }, [exploreData]);
+
+  // ── Determine which data to show ──
+  const isSearching = viewMode === "search" && debouncedQuery.length > 0;
+  const moments: MomentFeedItem[] = isSearching
+    ? (searchData?.pages.flatMap((page) => page.items) ?? [])
+    : (exploreData?.pages.flatMap((page) => page.items) ?? []);
+
+  const isLoading = isSearching ? isSearchLoading : isExploreLoading;
+  const isError = isSearching ? isSearchError : isExploreError;
+  const hasNextPage = isSearching ? hasSearchNext : hasExploreNext;
+  const isFetchingNextPage = isSearching ? isFetchingSearchNext : isFetchingExploreNext;
+
+  // ── Handlers ──
+  const handleRefresh = useCallback(() => {
+    if (isSearching) {
+      refetchSearch();
+    } else {
+      refetchExplore();
+    }
+  }, [isSearching, refetchExplore, refetchSearch]);
 
   const handleEndReached = useCallback(() => {
     if (hasNextPage && !isFetchingNextPage) {
-      fetchNextPage();
+      if (isSearching) {
+        fetchSearchNext();
+      } else {
+        fetchExploreNext();
+      }
     }
-  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+  }, [hasNextPage, isFetchingNextPage, isSearching, fetchSearchNext, fetchExploreNext]);
 
-  const handleSearch = useCallback(() => {
-    // TODO: Navigate to search results or trigger search API
-    // For now, this is a UI-only search bar placeholder
-    if (searchQuery.trim()) {
-      console.log("Search:", searchQuery);
-    }
-  }, [searchQuery]);
+  const handleSearchSubmit = useCallback(() => {
+    const q = searchQuery.trim();
+    if (!q) return;
+    setDebouncedQuery(q);
+    setViewMode("search");
+    saveSearchHistory(q);
+    searchInputRef.current?.blur();
+  }, [searchQuery, saveSearchHistory]);
+
+  const handleClearSearch = useCallback(() => {
+    setSearchQuery("");
+    setDebouncedQuery("");
+    setViewMode("default");
+    searchInputRef.current?.blur();
+  }, []);
+
+  const handleTagPress = useCallback((tag: string) => {
+    setSearchQuery(tag);
+    setDebouncedQuery(tag);
+    setViewMode("search");
+    setIsSearchFocused(false);
+    saveSearchHistory(tag);
+    searchInputRef.current?.blur();
+  }, [saveSearchHistory]);
+
+  const handleHistorySelect = useCallback((query: string) => {
+    setSearchQuery(query);
+    setDebouncedQuery(query);
+    setViewMode("search");
+    setIsSearchFocused(false);
+    searchInputRef.current?.blur();
+  }, []);
+
+  const handleClearSingleHistory = useCallback(async (index: number) => {
+    const newHistory = searchHistory.filter((_, i) => i !== index);
+    setSearchHistory(newHistory);
+    await AsyncStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(newHistory));
+  }, [searchHistory]);
+
+  const handleClearAllHistory = useCallback(async () => {
+    setSearchHistory([]);
+    await AsyncStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify([]));
+  }, []);
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
@@ -178,16 +420,19 @@ export default function ExploreScreen() {
             color={Colors.textTertiary}
           />
           <TextInput
+            ref={searchInputRef}
             style={styles.searchInput}
             placeholder="搜索用户或记录…"
             placeholderTextColor={Colors.textTertiary}
             value={searchQuery}
             onChangeText={setSearchQuery}
             returnKeyType="search"
-            onSubmitEditing={handleSearch}
+            onSubmitEditing={handleSearchSubmit}
+            onFocus={() => setIsSearchFocused(true)}
+            onBlur={() => setIsSearchFocused(false)}
           />
           {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => setSearchQuery("")}>
+            <TouchableOpacity onPress={handleClearSearch}>
               <Ionicons
                 name="close-circle"
                 size={18}
@@ -198,11 +443,15 @@ export default function ExploreScreen() {
         </View>
       </View>
 
-      {/* ── Section Title ── */}
-      <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>发现更多</Text>
-        <Text style={styles.sectionSubtitle}>公共时刻</Text>
-      </View>
+      {/* ── Search History (when focused and no query) ── */}
+      {isSearchFocused && !searchQuery.trim() && (
+        <SearchHistory
+          history={searchHistory}
+          onSelect={handleHistorySelect}
+          onClearSingle={handleClearSingleHistory}
+          onClearAll={handleClearAllHistory}
+        />
+      )}
 
       {/* ── Content ── */}
       {isLoading ? (
@@ -212,6 +461,9 @@ export default function ExploreScreen() {
       ) : isError ? (
         <View style={styles.center}>
           <Text style={styles.errorText}>加载失败</Text>
+          <TouchableOpacity style={styles.retryBtn} onPress={handleRefresh}>
+            <Text style={styles.retryText}>点击重试</Text>
+          </TouchableOpacity>
         </View>
       ) : (
         <FlatList
@@ -219,8 +471,8 @@ export default function ExploreScreen() {
           keyExtractor={(item) => item.id}
           refreshControl={
             <RefreshControl
-              refreshing={isRefetching}
-              onRefresh={onRefresh}
+              refreshing={isSearching ? false : isExploreRefetching}
+              onRefresh={handleRefresh}
               tintColor={Colors.primary}
               colors={[Colors.primary]}
             />
@@ -231,7 +483,32 @@ export default function ExploreScreen() {
           ]}
           onEndReached={handleEndReached}
           onEndReachedThreshold={0.5}
-          ListEmptyComponent={EmptyState}
+          ListHeaderComponent={
+            <>
+              {/* ── Hot Tags (default view only) ── */}
+              {!isSearching && !isSearchFocused && (
+                <HotTagsSection tags={hotTags} onTagPress={handleTagPress} />
+              )}
+
+              {/* ── Section Title ── */}
+              {!isSearching && moments.length > 0 && (
+                <View style={styles.sectionHeader}>
+                  <Text style={styles.sectionTitle}>发现更多</Text>
+                  <Text style={styles.sectionSubtitle}>公共时刻</Text>
+                </View>
+              )}
+            </>
+          }
+          ListEmptyComponent={
+            isSearching ? (
+              <SearchEmptyState query={debouncedQuery} />
+            ) : (
+              <EmptyState
+                message="暂无公开生刻"
+                submessage="还没有人发布公开记录"
+              />
+            )
+          }
           renderItem={({ item }) => (
             <MomentCard
               item={item}
@@ -303,6 +580,69 @@ const styles = StyleSheet.create({
     paddingVertical: 0,
   },
 
+  // ── Search History ──
+  historyContainer: {
+    backgroundColor: Colors.bgCard,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
+    borderBottomWidth: 0.5,
+    borderBottomColor: Colors.border,
+  },
+  historyHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: Spacing.sm,
+  },
+  historyTitle: {
+    fontSize: FontSize.small,
+    fontWeight: FontWeight.semibold,
+    color: Colors.textSecondary,
+  },
+  historyClearAll: {
+    fontSize: FontSize.small,
+    color: Colors.textAccent,
+  },
+  historyItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    paddingVertical: Spacing.sm,
+  },
+  historyText: {
+    flex: 1,
+    fontSize: FontSize.body,
+    color: Colors.textPrimary,
+  },
+
+  // ── Hot Tags ──
+  hotTagsContainer: {
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    backgroundColor: Colors.bg,
+  },
+  hotTagsTitle: {
+    fontSize: FontSize.small,
+    fontWeight: FontWeight.semibold,
+    color: Colors.textSecondary,
+    marginBottom: Spacing.sm,
+  },
+  hotTagsRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.sm,
+  },
+  hotTag: {
+    backgroundColor: Colors.primaryLight + "30",
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+    borderRadius: Radius.full,
+  },
+  hotTagText: {
+    fontSize: FontSize.small,
+    color: Colors.primaryDark,
+  },
+
   // ── Section Header ──
   sectionHeader: {
     paddingHorizontal: Spacing.lg,
@@ -330,6 +670,18 @@ const styles = StyleSheet.create({
   errorText: {
     fontSize: FontSize.body,
     color: Colors.error,
+  },
+  retryBtn: {
+    marginTop: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
+    borderRadius: Radius.md,
+    backgroundColor: Colors.primaryLight + "30",
+  },
+  retryText: {
+    fontSize: FontSize.body,
+    color: Colors.primary,
+    fontWeight: FontWeight.medium,
   },
   list: {
     padding: Spacing.md,

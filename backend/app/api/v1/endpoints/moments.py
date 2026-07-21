@@ -62,6 +62,7 @@ async def create_moment_endpoint(
         message="success",
         data=CreateMomentResponseData(
             id=moment.id,
+            user_id=moment.user_id,
             created_at=moment.created_at,
         ),
     )

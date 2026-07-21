@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone, timedelta
 from typing import Optional
 from uuid import UUID
 
@@ -8,6 +9,26 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.moment import Moment
 from app.models.user import User
+from app.models.like import Like
+
+
+async def _get_liked_moment_ids(
+    db: AsyncSession,
+    user_id: UUID,
+    moment_ids: list[UUID],
+) -> set[UUID]:
+    """Return a set of moment IDs that the user has liked."""
+    if not moment_ids:
+        return set()
+    result = await db.execute(
+        select(Like.target_id).where(
+            Like.user_id == user_id,
+            Like.target_type == 1,
+            Like.target_id.in_(moment_ids),
+            Like.deleted_at.is_(None),
+        )
+    )
+    return {row[0] for row in result.all()}
 
 
 async def search_moments(
@@ -17,24 +38,29 @@ async def search_moments(
     page: int = 1,
     page_size: int = 20,
     tag: str | None = None,
-) -> tuple[list[Moment], int]:
-    """Full-text search over Moments using PostgreSQL ILIKE.
+    sort: str = "relevance",
+) -> tuple[list[dict], int]:
+    """Full-text search over Moments using PostgreSQL tsvector.
 
-    Searches both `title` and `content` fields with case-insensitive
-    partial matching. Results are filtered to:
+    Uses GIN-indexed tsvector on (title || ' ' || content) with simple
+    configuration. Weighted: title=A, content=B.
+
+    Results are filtered to:
       - Public (privacy_level == 0) moments, OR
       - Moments owned by the current user
 
     Optionally filtered by an AI tag.
-    """
-    pattern = f"%{query}%"
 
+    Sort modes:
+      - "relevance" (default): ts_rank descending
+      - "latest": created_at descending
+      - "hot": like_count descending (with 30-day window)
+
+    Returns (list of FeedItem-style dicts with author info, total count).
+    """
+    # Build base conditions
     conditions = [
         Moment.deleted_at.is_(None),
-        or_(
-            Moment.title.ilike(pattern),
-            Moment.content.ilike(pattern),
-        ),
         or_(
             Moment.privacy_level == 0,
             Moment.user_id == current_user_id,
@@ -44,20 +70,121 @@ async def search_moments(
     if tag:
         conditions.append(Moment.ai_tags.any(tag))
 
+    # Build tsquery from user input
+    # Only apply tsvector filter when query is non-empty
+    ts_query = func.plainto_tsquery("simple", query)
+
+    # Weighted tsvector: title=A (higher), content=B (normal)
+    ts_vector_weighted = (
+        func.setweight(
+            func.to_tsvector("simple", func.coalesce(Moment.title, "")), "A"
+        )
+        + func.setweight(
+            func.to_tsvector("simple", func.coalesce(Moment.content, "")), "B"
+        )
+    )
+
+    # Add tsquery filter
+    conditions.append(ts_vector_weighted.op("@@")(ts_query))
+
     # Count
     count_query = select(func.count(Moment.id)).where(*conditions)
     total_result = await db.execute(count_query)
     total = total_result.scalar() or 0
 
-    # Fetch
+    if total == 0:
+        return [], 0
+
+    # Determine sort order
+    if sort == "latest":
+        order_clause = Moment.created_at.desc()
+    elif sort == "hot":
+        # Hot: 30-day window, ordered by like_count desc
+        cutoff = datetime.now(timezone.utc) - timedelta(days=30)
+        conditions.append(Moment.created_at >= cutoff)
+        order_clause = Moment.like_count.desc()
+    else:
+        # Default: relevance sort by ts_rank
+        rank = func.ts_rank(ts_vector_weighted, ts_query)
+        order_clause = rank.desc()
+
+    # Fetch with author join
     stmt = (
-        select(Moment)
+        select(Moment, User.nickname, User.avatar_url)
+        .join(User, Moment.user_id == User.id)
         .where(*conditions)
-        .order_by(Moment.created_at.desc())
+        .order_by(order_clause)
         .offset((page - 1) * page_size)
         .limit(page_size)
     )
     result = await db.execute(stmt)
-    moments = list(result.scalars().all())
+    rows = result.all()
 
-    return moments, total
+    # Fetch liked moment IDs
+    moment_ids = [row.Moment.id for row in rows]
+    liked_moment_ids = await _get_liked_moment_ids(db, current_user_id, moment_ids)
+
+    # Build FeedItem-style dicts
+    items = []
+    for row in rows:
+        moment = row.Moment
+        item = {
+            "id": moment.id,
+            "user_id": moment.user_id,
+            "title": moment.title,
+            "content": moment.content,
+            "mood": moment.mood,
+            "weather": moment.weather,
+            "location_name": moment.location_name,
+            "privacy_level": moment.privacy_level,
+            "is_archived": moment.is_archived,
+            "ai_tags": moment.ai_tags,
+            "comment_count": moment.comment_count,
+            "like_count": moment.like_count,
+            "view_count": moment.view_count,
+            "created_at": moment.created_at,
+            "author_nickname": row.nickname,
+            "author_avatar_url": row.avatar_url,
+            "is_liked": moment.id in liked_moment_ids,
+        }
+        items.append(item)
+
+    return items, total
+
+
+async def search_users(
+    db: AsyncSession,
+    query: str,
+    page: int = 1,
+    page_size: int = 20,
+) -> tuple[list[User], int]:
+    """Search users by nickname (case-insensitive partial match).
+
+    Uses PostgreSQL ILIKE for case-insensitive fuzzy matching.
+    Only returns non-deleted users.
+    """
+    pattern = f"%{query}%"
+
+    # Count
+    count_query = select(func.count(User.id)).where(
+        User.nickname.ilike(pattern),
+        User.deleted_at.is_(None),
+    )
+    total_result = await db.execute(count_query)
+    total = total_result.scalar() or 0
+
+    # Fetch
+    query_stmt = (
+        select(User)
+        .where(
+            User.nickname.ilike(pattern),
+            User.deleted_at.is_(None),
+        )
+        .order_by(User.created_at.desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+    )
+    result = await db.execute(query_stmt)
+    users = list(result.scalars().all())
+
+    return users, total
