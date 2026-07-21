@@ -26,6 +26,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `getMomentFeed` and `useMomentFeed` support sort parameter
 - Profile page shows author avatar and nickname
 
+## [0.6.0] — 2026-07-21
+
+### Added
+
+#### Backend — User Profile Enhancement
+- `likes_received_count` added to `UserProfileResponse`: returns total likes across user's moments
+- `get_user_profile` and `get_own_profile` compute likes received via SQL aggregate
+
+#### Frontend — User Profile Page & Social Interactions
+- User profile page shows user's Moment list (FlatList with infinite scroll via `useUserMoments`)
+- Avatar upload: press avatar → pick image (expo-image-picker) → upload via `uploadMedia` → update profile with new URL
+- Settings page: avatar preview + change button
+- User profile routing: `profile/[id].tsx` for viewing other users' profiles
+- Follow/unfollow interaction: `useFollowToggle` hook with optimistic UI updates
+- Feed MomentCard author area clickable → navigates to user's profile page
+
+### Fixed
+
+#### Frontend — API Compatibility
+- `toggleLike` and `getLikeStatus` target_type parameter: now properly maps "moment"→1, "comment"→2 (was sending string, backend expects int)
+
 ## [0.4.0] — 2026-07-20
 
 ### Added
