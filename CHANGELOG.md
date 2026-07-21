@@ -109,6 +109,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `services/userSettings.ts` — `getMySettings` / `updateMySettings`
 - Settings page: notification toggle (`notification_enabled`), privacy level radio selector (`privacy_default`)
 
+## [0.9.0] — 2026-07-22
+
+### Added
+
+#### Backend — Data Export (async)
+- `POST /users/me/export` — creates export task with `BackgroundTasks`, returns `task_id`
+- `GET /users/me/export/{task_id}` — query task status (pending/processing/done/failed)
+- `GET /users/me/export/{task_id}/download` — download exported JSON file
+- `app/services/export.py` — `ExportTaskStore` (in-memory), `export_user_data` async builder with moments + comments + media
+
+#### Backend — OSS Pre-signed URL Direct Upload
+- `POST /media/upload-signature` — returns OSS pre-signed URL + object_key
+- `app/services/media.py` — real `oss2` pre-signed URL generation; graceful fallback to mock when OSS unconfigured
+- OSS config fields (`ali_oss_endpoint`, `ali_oss_bucket`, `ali_oss_access_key_id`, `ali_oss_access_key_secret`) in Settings
+- 3-step flow: signature → PUT to OSS → confirm
+
+#### Backend — Content Audit (MVP)
+- `app/services/audit.py` — `audit_text()` with sensitive word filtering, `audit_image()` stub
+- Moment creation now runs audit on content; rejected content returns specific reason
+- `AuditRejected` exception for clean error handling
+
+#### Backend — Blurhash
+- `blurhash` field added to Media model + alembic migration
+- `app/utils/blurhash_utils.py` — `compute_blurhash()` using Pillow + blurhash library
+- Upload endpoint computes and stores blurhash automatically
+- Dependencies: `blurhash>=1.1.4`, `Pillow`, `numpy>=1.24.0`
+
+#### Frontend — Data Export UI
+- `services/export.ts` — `requestExport`, `getExportStatus`, `getDownloadUrl`
+- Settings page "数据管理" section with "导出我的数据" button
+- Status polling (2s interval) from pending → done, download button on completion
+
+#### Frontend — OSS Direct Upload
+- `services/media.ts` — `getUploadSignature`, `uploadToPresignedUrl`, `confirmUpload`, `uploadMediaDirect`
+- Create moment and avatar upload flows updated to use OSS direct upload
+
+#### Frontend — Blurhash Image Component
+- `components/media/BlurhashImage.tsx` — grey placeholder → image fade-in transition
+- Barrel export in `components/media/index.ts`
+
 ## [0.4.0] — 2026-07-20
 
 ### Added
