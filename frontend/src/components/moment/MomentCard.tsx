@@ -1,40 +1,23 @@
-import React from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-} from "react-native";
-import { Ionicons } from "@expo/vector-icons";
-import { formatRelativeTime } from "../utils/format";
-import { Colors, Spacing, FontSize, FontWeight, Radius, Shadows } from "../constants/theme";
-import type { MomentFeedItem } from "../types/api";
-
-function getPrivacyLabel(level: number): string {
-  switch (level) {
-    case 0:
-      return "仅自己";
-    case 1:
-      return "好友";
-    case 2:
-      return "互关";
-    case 3:
-      return "公开";
-    default:
-      return "";
-  }
-}
+import React from 'react'
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native'
+import { Ionicons } from '@expo/vector-icons'
+import { formatRelativeTime } from '../../utils/format'
+import { Colors, Spacing, FontSize, FontWeight, Radius, Shadows } from '../../constants/theme'
+import type { MomentFeedItem } from '../../types/api'
+import { Avatar } from '../common/Avatar'
+import { PrivacyBadge } from '../common/PrivacyBadge'
+import { LikeButton } from '../social/LikeButton'
 
 function getInitial(name: string): string {
-  return name?.charAt(0)?.toUpperCase() || "?";
+  return name?.charAt(0)?.toUpperCase() || '?'
 }
 
 interface MomentCardProps {
-  item: MomentFeedItem;
-  onPress: () => void;
-  onLikeToggle: () => void;
-  onAuthorPress?: () => void;
-  likePending: boolean;
+  item: MomentFeedItem
+  onPress: () => void
+  onLikeToggle: () => void
+  onAuthorPress?: () => void
+  likePending: boolean
 }
 
 export function MomentCard({
@@ -46,11 +29,10 @@ export function MomentCard({
 }: MomentCardProps) {
   const truncatedContent =
     item.content && item.content.length > 80
-      ? item.content.slice(0, 80) + "…"
-      : item.content;
+      ? item.content.slice(0, 80) + '…'
+      : item.content
 
-  const displayName = item.author_nickname || "用户";
-  const avatarChar = getInitial(displayName);
+  const displayName = item.author_nickname || '用户'
 
   return (
     <TouchableOpacity
@@ -66,13 +48,11 @@ export function MomentCard({
         disabled={!onAuthorPress}
       >
         <View style={styles.authorLeft}>
-          {item.author_avatar_url ? (
-            <View style={styles.avatarCircle}>
-              <Text style={styles.avatarText}>{avatarChar}</Text>
-            </View>
-          ) : (
-            <Ionicons name="person-circle" size={32} color={Colors.textTertiary} />
-          )}
+          <Avatar
+            uri={item.author_avatar_url}
+            name={displayName}
+            size={32}
+          />
           <Text style={styles.authorNickname} numberOfLines={1}>
             {displayName}
           </Text>
@@ -87,18 +67,7 @@ export function MomentCard({
         <View style={styles.cardHeaderLeft}>
           {item.mood && <Text style={styles.mood}>{item.mood}</Text>}
         </View>
-        <View style={styles.privacyBadge}>
-          <Ionicons
-            name={
-              item.privacy_level >= 3 ? "globe-outline" : "lock-closed"
-            }
-            size={11}
-            color={Colors.textTertiary}
-          />
-          <Text style={styles.privacyText}>
-            {getPrivacyLabel(item.privacy_level)}
-          </Text>
-        </View>
+        <PrivacyBadge level={item.privacy_level} />
       </View>
 
       {/* Title */}
@@ -128,27 +97,12 @@ export function MomentCard({
 
       {/* Stats + Like */}
       <View style={styles.cardFooter}>
-        {/* Like button */}
-        <TouchableOpacity
-          style={styles.stat}
+        <LikeButton
+          count={item.like_count}
+          isLiked={item.is_liked ?? false}
           onPress={onLikeToggle}
           disabled={likePending}
-          activeOpacity={0.6}
-        >
-          <Ionicons
-            name={item.is_liked ? "heart" : "heart-outline"}
-            size={14}
-            color={item.is_liked ? Colors.error : Colors.textTertiary}
-          />
-          <Text
-            style={[
-              styles.statText,
-              item.is_liked && { color: Colors.error },
-            ]}
-          >
-            {item.like_count}
-          </Text>
-        </TouchableOpacity>
+        />
 
         <View style={styles.stat}>
           <Ionicons
@@ -160,7 +114,7 @@ export function MomentCard({
         </View>
       </View>
     </TouchableOpacity>
-  );
+  )
 }
 
 // ── Styles ──────────────────────────────────────────────
@@ -172,28 +126,15 @@ const styles = StyleSheet.create({
     ...Shadows.sm,
   },
   authorRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: Spacing.sm,
   },
   authorLeft: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: Spacing.sm,
-  },
-  avatarCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: Colors.bgTertiary,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  avatarText: {
-    fontSize: 13,
-    fontWeight: FontWeight.semibold,
-    color: Colors.primary,
   },
   authorNickname: {
     fontSize: FontSize.body,
@@ -206,73 +147,64 @@ const styles = StyleSheet.create({
     color: Colors.textTertiary,
   },
   cardHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: Spacing.xs,
   },
   cardHeaderLeft: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: Spacing.sm,
   },
   mood: {
     fontSize: FontSize.body,
-  },
-  privacyBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 3,
-    backgroundColor: Colors.bgSecondary,
-    borderRadius: Radius.sm,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 2,
-  },
-  privacyText: {
-    fontSize: FontSize.caption,
-    color: Colors.textTertiary,
   },
   cardTitle: {
     fontSize: FontSize.bodyLarge,
     fontWeight: FontWeight.semibold,
     color: Colors.textPrimary,
     marginTop: Spacing.xs,
+    marginBottom: 2,
   },
   content: {
     fontSize: FontSize.body,
     color: Colors.textSecondary,
-    lineHeight: 22,
+    lineHeight: FontSize.body * 1.5,
     marginTop: Spacing.xs,
   },
   tagsRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: Spacing.xs,
     marginTop: Spacing.sm,
   },
   tag: {
-    backgroundColor: Colors.bgSecondary,
-    borderRadius: Radius.full,
+    backgroundColor: Colors.primaryLight + '30',
     paddingHorizontal: Spacing.sm,
     paddingVertical: 2,
+    borderRadius: Radius.sm,
   },
   tagText: {
     fontSize: FontSize.caption,
-    color: Colors.textSecondary,
+    color: Colors.primaryDark,
   },
   cardFooter: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: Spacing.lg,
-    marginTop: Spacing.sm,
+    marginTop: Spacing.md,
+    paddingTop: Spacing.sm,
+    borderTopWidth: 0.5,
+    borderTopColor: Colors.divider,
   },
   stat: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 4,
   },
   statText: {
     fontSize: FontSize.small,
     color: Colors.textTertiary,
   },
-});
+})

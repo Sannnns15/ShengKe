@@ -21,7 +21,7 @@ import { useUserMoments } from "../../../hooks/useMomentFeed";
 import { useLikeToggle } from "../../../hooks/useLikeToggle";
 import { useImagePicker } from "../../../hooks/useImagePicker";
 import { useFollowToggle } from "../../../hooks/useFollowToggle";
-import { MomentCard } from "../../../components/MomentCard";
+import { MomentCard } from "../../../components/moment";
 import { Colors, Spacing, FontSize, FontWeight, Radius, Shadows } from "../../../constants/theme";
 import type { UserProfile, MomentFeedItem } from "../../../types/api";
 

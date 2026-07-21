@@ -14,7 +14,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useMomentFeed } from "../../../hooks/useMomentFeed";
 import { useLikeToggle } from "../../../hooks/useLikeToggle";
 import { useQueryClient } from "@tanstack/react-query";
-import { MomentCard } from "../../../components/MomentCard";
+import { MomentCard } from "../../../components/moment";
 
 import { Colors, Spacing, FontSize, FontWeight, Radius } from "../../../constants/theme";
 import type { MomentFeedItem } from "../../../types/api";
