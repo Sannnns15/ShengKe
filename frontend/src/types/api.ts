@@ -102,6 +102,7 @@ export interface UserProfile {
   moment_count: number;
   follower_count: number;
   following_count: number;
+  is_following?: boolean;
   created_at: string;
 }
 

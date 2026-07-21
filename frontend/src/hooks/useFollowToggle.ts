@@ -1,3 +1,4 @@
+import { useState, useCallback } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "../services/client";
 import type { UserProfile } from "../types/api";
@@ -6,60 +7,73 @@ import type { UserProfile } from "../types/api";
  * useFollowToggle — 关注/取消关注 hook（乐观更新）
  *
  * @param userId - 目标用户的 ID
- * @param initiallyFollowing - 初始关注状态
+ * @param defaultFollowing - 初始关注状态
  *
- * 使用方法：
- *   const { isFollowing, toggleFollow, isPending } = useFollowToggle(userId, profile?.is_following ?? false);
- *   <Button onPress={toggleFollow} disabled={isPending} />
+ * 返回：
+ *   isFollowing   - 当前关注状态
+ *   isPending     - 请求是否进行中
+ *   toggleFollow  - 切换关注状态的函数
  */
-export function useFollowToggle(userId: string, initiallyFollowing = false) {
+export function useFollowToggle(userId: string, defaultFollowing = false) {
+  const [isFollowing, setIsFollowing] = useState(defaultFollowing);
   const queryClient = useQueryClient();
 
   const mutation = useMutation({
-    mutationFn: async (following: boolean) => {
-      if (following) {
+    mutationFn: async (follow: boolean) => {
+      if (follow) {
         await apiClient.post(`/users/${userId}/follow`);
       } else {
         await apiClient.delete(`/users/${userId}/follow`);
       }
     },
-    onMutate: async (following) => {
-      // Cancel any outgoing refetches to avoid overwriting optimistic update
+    onMutate: async (follow) => {
+      // Optimistically update UI state
+      setIsFollowing(follow);
+
+      // Cancel any outgoing refetches
       await queryClient.cancelQueries({ queryKey: ["myProfile"] });
       await queryClient.cancelQueries({ queryKey: ["userProfile", userId] });
-      await queryClient.cancelQueries({ queryKey: ["exploreUsers"] });
 
       // Snapshot previous values
       const prevMyProfile = queryClient.getQueryData<UserProfile>(["myProfile"]);
-      const prevUserProfile = queryClient.getQueryData<UserProfile>(["userProfile", userId]);
 
-      // Optimistically update following_count on myProfile (can't know exact, but adjust by ±1)
+      // Optimistically update following_count on myProfile
       if (prevMyProfile) {
         queryClient.setQueryData<UserProfile>(["myProfile"], {
           ...prevMyProfile,
-          following_count: following
+          following_count: follow
             ? prevMyProfile.following_count + 1
             : Math.max(0, prevMyProfile.following_count - 1),
         });
       }
 
-      return { prevMyProfile, prevUserProfile };
+      return { prevMyProfile };
     },
-    onError: (_err, _following, context) => {
-      // Rollback
+    onError: (_err, follow, context) => {
+      // Rollback UI state
+      setIsFollowing(!follow);
+
+      // Rollback cache
       if (context?.prevMyProfile) {
         queryClient.setQueryData(["myProfile"], context.prevMyProfile);
       }
-      if (context?.prevUserProfile) {
-        queryClient.setQueryData(["userProfile", userId], context.prevUserProfile);
-      }
     },
     onSettled: () => {
-      // Invalidate to ensure fresh data
+      // Refresh profile data
       queryClient.invalidateQueries({ queryKey: ["myProfile"] });
       queryClient.invalidateQueries({ queryKey: ["userProfile", userId] });
+      queryClient.invalidateQueries({ queryKey: ["exploreUsers"] });
     },
   });
 
-  return mutation;
+  const toggleFollow = useCallback(() => {
+    const nextState = !isFollowing;
+    mutation.mutate(nextState);
+  }, [isFollowing, mutation]);
+
+  return {
+    isFollowing,
+    isPending: mutation.isPending,
+    toggleFollow,
+  };
 }

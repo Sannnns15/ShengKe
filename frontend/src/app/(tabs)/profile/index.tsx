@@ -86,7 +86,10 @@ export default function ProfileScreen() {
   const [avatarUploading, setAvatarUploading] = useState(false);
 
   // Follow toggle (only for other users)
-  const followMutation = useFollowToggle(userId, false);
+  const { isFollowing, isPending: followPending, toggleFollow } = useFollowToggle(
+    userId,
+    profile?.is_following ?? false
+  );
 
   const handleLogout = useCallback(() => {
     Alert.alert("退出登录", "确定要退出当前账户吗？", [
@@ -150,12 +153,6 @@ export default function ProfileScreen() {
       { text: "关闭", style: "cancel" },
     ]);
   }, []);
-
-  // ── Follow / Unfollow ──────────────────────────────────
-  const handleToggleFollow = useCallback(() => {
-    const newState = !followMutation.isPending;
-    followMutation.mutate(newState);
-  }, [followMutation]);
 
   // ── Moment Like ────────────────────────────────────────
   const handleLikeToggle = useCallback(
@@ -312,17 +309,21 @@ export default function ProfileScreen() {
                   <TouchableOpacity
                     style={[
                       styles.followButton,
-                      followMutation.isPending && styles.buttonDisabled,
+                      isFollowing && styles.followButtonActive,
+                      followPending && styles.buttonDisabled,
                     ]}
-                    onPress={() => followMutation.mutate(!followMutation.isPending)}
-                    disabled={followMutation.isPending}
+                    onPress={toggleFollow}
+                    disabled={followPending}
                     activeOpacity={0.7}
                   >
-                    {followMutation.isPending ? (
-                      <ActivityIndicator size="small" color={Colors.textInverse} />
+                    {followPending ? (
+                      <ActivityIndicator size="small" color={isFollowing ? Colors.primary : Colors.textInverse} />
                     ) : (
-                      <Text style={styles.followButtonText}>
-                        {"已关注"}
+                      <Text style={[
+                        styles.followButtonText,
+                        isFollowing && styles.followButtonTextActive,
+                      ]}>
+                        {isFollowing ? "已关注" : "＋ 关注"}
                       </Text>
                     )}
                   </TouchableOpacity>
@@ -368,40 +369,43 @@ export default function ProfileScreen() {
             </View>
           )}
           ListFooterComponent={
-            isFetchingMoreMoments ? (
-              <View style={styles.footerLoader}>
-                <ActivityIndicator size="small" color={Colors.primary} />
-                <Text style={styles.footerLoaderText}>加载更多…</Text>
-              </View>
-            ) : null
+            <>
+              {isFetchingMoreMoments && (
+                <View style={styles.footerLoader}>
+                  <ActivityIndicator size="small" color={Colors.primary} />
+                  <Text style={styles.footerLoaderText}>加载更多…</Text>
+                </View>
+              )}
+              {/* ── Menu (own profile only) ── */}
+              {isOwnProfile && (
+                <View style={styles.menu}>
+                  <TouchableOpacity
+                    style={styles.menuItem}
+                    onPress={() => router.push("/ai/mood-report")}
+                  >
+                    <Text style={styles.menuText}>📊 情绪报告</Text>
+                  </TouchableOpacity>
+                  <View style={styles.menuDivider} />
+                  <TouchableOpacity
+                    style={styles.menuItem}
+                    onPress={() => router.push("/(tabs)/profile/settings")}
+                  >
+                    <Text style={styles.menuText}>⚙️ 设置</Text>
+                  </TouchableOpacity>
+                  <View style={styles.menuDivider} />
+                  <TouchableOpacity style={styles.menuItem} onPress={handleLogout}>
+                    <Text style={[styles.menuText, { color: Colors.error }]}>
+                      🚪 退出登录
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+              {/* Bottom spacer */}
+              <View style={styles.bottomSpacer} />
+            </>
           }
           contentContainerStyle={styles.listContent}
         />
-      )}
-
-      {/* ── Menu (own profile only, shown below header) ── */}
-      {isOwnProfile && isAuthenticated && !isLoading && !isError && (
-        <View style={styles.menu}>
-          <TouchableOpacity
-            style={styles.menuItem}
-            onPress={() => router.push("/ai/mood-report")}
-          >
-            <Text style={styles.menuText}>📊 情绪报告</Text>
-          </TouchableOpacity>
-          <View style={styles.menuDivider} />
-          <TouchableOpacity
-            style={styles.menuItem}
-            onPress={() => router.push("/(tabs)/profile/settings")}
-          >
-            <Text style={styles.menuText}>⚙️ 设置</Text>
-          </TouchableOpacity>
-          <View style={styles.menuDivider} />
-          <TouchableOpacity style={styles.menuItem} onPress={handleLogout}>
-            <Text style={[styles.menuText, { color: Colors.error }]}>
-              🚪 退出登录
-            </Text>
-          </TouchableOpacity>
-        </View>
       )}
     </SafeAreaView>
   );
@@ -500,10 +504,18 @@ const styles = StyleSheet.create({
     minWidth: 120,
     alignItems: "center",
   },
+  followButtonActive: {
+    backgroundColor: Colors.bgSecondary,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
   followButtonText: {
     fontSize: FontSize.body,
     color: Colors.textInverse,
     fontWeight: FontWeight.semibold,
+  },
+  followButtonTextActive: {
+    color: Colors.textSecondary,
   },
   editProfileButton: {
     marginTop: Spacing.lg,
@@ -617,5 +629,8 @@ const styles = StyleSheet.create({
     fontSize: FontSize.body,
     color: Colors.textAccent,
     fontWeight: FontWeight.semibold,
+  },
+  bottomSpacer: {
+    height: Spacing.xxl,
   },
 });
