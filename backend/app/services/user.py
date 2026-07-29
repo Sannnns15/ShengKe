@@ -6,7 +6,7 @@ from uuid import UUID
 from sqlalchemy import select, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.cache import get, set, delete, make_key, TTL
+from app.core.cache import get, set as cache_set, delete, make_key, TTL
 from app.models.follow import Follow
 from app.models.like import Like
 from app.models.moment import Moment
@@ -130,7 +130,7 @@ async def get_user_profile(
         "likes_received_count": likes_received_count,
         "is_following": is_following,
     }
-    await set(cache_key, profile, TTL.get("profile", 300))
+    await cache_set(cache_key, profile, TTL.get("profile", 300))
     return profile
 
 
@@ -210,7 +210,7 @@ async def get_own_profile(
         "following_count": following_count,
         "likes_received_count": likes_received_count,
     }
-    await set(cache_key, profile, TTL.get("profile", 300))
+    await cache_set(cache_key, profile, TTL.get("profile", 300))
     return profile
 
 

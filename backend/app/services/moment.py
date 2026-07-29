@@ -12,7 +12,7 @@ from app.models.follow import Follow
 from app.models.like import Like
 from app.models.user import User
 from app.models.tag import Tag, MomentTag
-from app.core.cache import get, set, delete, delete_pattern, make_key, TTL
+from app.core.cache import get, set as cache_set, delete, delete_pattern, make_key, TTL
 from app.services.audit import audit_text
 from app.services.mention import process_mentions
 from app.services.ai import analyze_moment as analyze_moment_service
@@ -340,7 +340,7 @@ async def get_feed(
         items.append(item)
 
     result_data = (items, total)
-    await set(cache_key, result_data, TTL.get("feed", 60))
+    await cache_set(cache_key, result_data, TTL.get("feed", 60))
     return result_data
 
 
@@ -560,7 +560,7 @@ async def get_feed_cursor(
     # Cache the first page
     if cursor is None:
         cache_key = make_key("feed", str(user_id), "cursor", limit, sort)
-        await set(cache_key, (items, next_cursor, has_more), TTL.get("feed", 60))
+        await cache_set(cache_key, (items, next_cursor, has_more), TTL.get("feed", 60))
 
     return items, next_cursor, has_more
 
@@ -635,7 +635,7 @@ async def get_moment_with_like_status(
         "is_liked": is_liked,
     }
 
-    await set(cache_key, result_dict, TTL.get("moment", 120))
+    await cache_set(cache_key, result_dict, TTL.get("moment", 120))
 
     return result_dict
 

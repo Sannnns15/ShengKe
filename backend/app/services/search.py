@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.moment import Moment
 from app.models.user import User
-from app.core.cache import get, set, make_key, TTL
+from app.core.cache import get, set as cache_set, make_key, TTL
 from app.models.like import Like
 
 
@@ -177,7 +177,7 @@ async def search_moments(
         }
         items.append(item)
 
-    await set(cache_key, (items, total), TTL.get("search", 30))
+    await cache_set(cache_key, (items, total), TTL.get("search", 30))
     return items, total
 
 
