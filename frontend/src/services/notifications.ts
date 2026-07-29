@@ -11,8 +11,12 @@ export interface NotificationItem {
   title: string;
   body: string;
   is_read: boolean;
+  /** "moment" | "comment" — what kind of thing target_id points to */
+  target_type?: "moment" | "comment" | null;
   /** Optional: the target moment/comment ID for deep-link */
   target_id?: string;
+  /** The user who triggered this notification (e.g. who followed/liked/commented) */
+  actor_id?: string | null;
   /** Optional: who triggered this notification */
   actor_name?: string;
   actor_avatar?: string | null;
@@ -85,6 +89,7 @@ const MOCK_NOTIFICATIONS: NotificationItem[] = [
     title: "收到点赞",
     body: "小明 赞了你的生刻「今天天气真好」",
     is_read: false,
+    target_type: "moment",
     target_id: "moment-mock-1",
     actor_name: "小明",
     created_at: new Date(Date.now() - 2 * 60 * 1000).toISOString(),
@@ -95,6 +100,7 @@ const MOCK_NOTIFICATIONS: NotificationItem[] = [
     title: "收到评论",
     body: "小红 评论了你：感觉好温暖呀～",
     is_read: false,
+    target_type: "moment",
     target_id: "moment-mock-1",
     actor_name: "小红",
     created_at: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
@@ -105,6 +111,7 @@ const MOCK_NOTIFICATIONS: NotificationItem[] = [
     title: "新粉丝",
     body: "张三 关注了你",
     is_read: false,
+    actor_id: "mock-user-zhangsan",
     actor_name: "张三",
     created_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
   },
@@ -122,6 +129,7 @@ const MOCK_NOTIFICATIONS: NotificationItem[] = [
     title: "收到点赞",
     body: "李四 和 王五 赞了你的生刻「深夜思绪」",
     is_read: true,
+    target_type: "moment",
     target_id: "moment-mock-2",
     actor_name: "李四",
     created_at: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
@@ -132,6 +140,7 @@ const MOCK_NOTIFICATIONS: NotificationItem[] = [
     title: "收到评论",
     body: "赵六 评论了你：说得太对了！",
     is_read: true,
+    target_type: "moment",
     target_id: "moment-mock-2",
     actor_name: "赵六",
     created_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),

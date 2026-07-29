@@ -160,12 +160,15 @@ export default function NotificationsScreen() {
       // Optimistically mark as read
       markReadMutation.mutate(id)
 
-      // Navigate to target moment if available
-      if (item.target_id) {
+      // Navigate to the right place depending on what this notification points to.
+      // target_id/target_type only resolve to a moment for "moment" targets — a
+      // "comment" target_id is a comment id, not a moment id, so there's no valid
+      // route to deep-link into yet.
+      if (item.target_type === "moment" && item.target_id) {
         router.push(`/(tabs)/home/${item.target_id}`)
-      } else if (item.type === "follow") {
-        // Navigate to profile
-        router.push(`/(tabs)/profile/${item.id}`)
+      } else if (item.type === "follow" && item.actor_id) {
+        // Navigate to the follower's profile (not the notification's own id)
+        router.push(`/(tabs)/profile/${item.actor_id}`)
       }
     },
     [markReadMutation]
