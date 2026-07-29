@@ -81,7 +81,7 @@ async def search_moments(
     ]
 
     if tag:
-        conditions.append(Moment.ai_tags.any(tag))
+        conditions.append(Moment.ai_tags.contains([tag]))
 
     if user_id:
         conditions.append(Moment.user_id == user_id)

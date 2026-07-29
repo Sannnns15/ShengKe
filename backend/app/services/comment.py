@@ -46,6 +46,10 @@ async def create_comment(
     await db.commit()
     await db.refresh(comment)
 
+    # Invalidate moment cache so next GET returns fresh comment_count
+    from app.core.cache import delete, make_key
+    await delete(make_key("moment", str(moment_id)))
+
     # Notify moment author about the new comment
     if moment and moment.user_id != user_id:
         content_preview = content[:100] if len(content) > 100 else content
@@ -181,4 +185,9 @@ async def delete_comment(
         moment.comment_count = Moment.comment_count - 1
 
     await db.commit()
+
+    # Invalidate moment cache so next GET returns fresh comment_count
+    from app.core.cache import delete, make_key
+    await delete(make_key("moment", str(comment.moment_id)))
+
     return True
