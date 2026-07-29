@@ -8,3 +8,6 @@ backend/.coverage
 node_modules/
 venv/
 uploads/
+*.apk
+*.ipa
+*.aab
