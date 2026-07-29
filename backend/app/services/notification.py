@@ -47,8 +47,14 @@ async def get_user_notifications(
     user_id: UUID,
     page: int = 1,
     page_size: int = 20,
-) -> tuple[list[Notification], int]:
-    """Get paginated notifications for a user, ordered by created_at DESC."""
+) -> tuple[list[dict], int]:
+    """Get paginated notifications for a user with actor info.
+
+    JOINs the User table on actor_id to populate actor_name and actor_avatar.
+    Returns list of dicts with all Notification fields plus actor info.
+    """
+    from app.models.user import User
+
     conditions = [Notification.user_id == user_id]
 
     # Count total
@@ -56,16 +62,53 @@ async def get_user_notifications(
     total_result = await db.execute(count_query)
     total = total_result.scalar() or 0
 
-    # Fetch page
+    # Fetch page with actor join (LEFT JOIN because actor_id can be null)
     query = (
-        select(Notification)
+        select(Notification, User.nickname, User.avatar_url)
+        .outerjoin(User, Notification.actor_id == User.id)
         .where(*conditions)
         .order_by(Notification.created_at.desc())
         .offset((page - 1) * page_size)
         .limit(page_size)
     )
     result = await db.execute(query)
-    notifications = list(result.scalars().all())
+    rows = result.all()
+
+    def _make_title_body(n: Notification, actor_name: str | None) -> tuple[str, str]:
+        """Build human-readable title and body from notification type."""
+        name = actor_name or "某人"
+        content_preview = (n.content or "")[:100]
+        if n.type == "like":
+            return ("收到点赞", f"{name} 赞了你的生刻")
+        elif n.type == "comment":
+            return ("收到评论", f"{name} 评论了你：{content_preview}" if content_preview else f"{name} 评论了你")
+        elif n.type == "follow":
+            return ("新粉丝", f"{name} 关注了你")
+        elif n.type == "mention":
+            return ("有人@了你", f"{name} 在生刻中提到了你")
+        elif n.type == "system":
+            return ("系统通知", n.content or "")
+        else:
+            return ("通知", n.content or "")
+
+    notifications = []
+    for notification, nickname, avatar_url in rows:
+        title, body = _make_title_body(notification, nickname)
+        notifications.append({
+            "id": notification.id,
+            "user_id": notification.user_id,
+            "actor_id": notification.actor_id,
+            "actor_name": nickname,
+            "actor_avatar": avatar_url,
+            "type": notification.type,
+            "title": title,
+            "body": body,
+            "target_type": notification.target_type,
+            "target_id": notification.target_id,
+            "content": notification.content,
+            "is_read": notification.is_read,
+            "created_at": notification.created_at,
+        })
 
     return notifications, total
 

@@ -11,7 +11,11 @@ class NotificationItem(BaseModel):
     id: UUID
     user_id: UUID
     actor_id: UUID | None = None
+    actor_name: str | None = None
+    actor_avatar: str | None = None
     type: str
+    title: str = ""
+    body: str = ""
     target_type: str | None = None
     target_id: UUID | None = None
     content: str | None = None
