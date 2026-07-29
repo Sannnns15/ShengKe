@@ -95,6 +95,13 @@ async def create_moment(
     await db.commit()
     await db.refresh(moment)
 
+    # Merge user's tag_names into ai_tags before AI analysis,
+    # so AI analysis adds to them instead of overwriting.
+    user_tags = data.get("tag_names") or []
+    if user_tags:
+        moment.ai_tags = user_tags
+        await db.commit()
+
     # Trigger AI analysis (runs synchronously in mock mode; db is already committed
     # so this updates ai_tags/ai_summary/ai_emotion in the background of the same request).
     # When Celery is wired up, replace with:

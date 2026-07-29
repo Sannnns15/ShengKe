@@ -94,7 +94,7 @@ async def analyze_moment(db: AsyncSession, moment_id: UUID) -> dict | None:
             "ai_summary": "这是一条生活记录",
             "ai_emotion": "neutral",
         }
-        moment.ai_tags = tags
+        moment.ai_tags = list(dict.fromkeys((moment.ai_tags or []) + tags))
         moment.ai_summary = "这是一条生活记录"
         moment.ai_emotion = "neutral"
         await db.commit()
@@ -148,7 +148,7 @@ async def analyze_moment(db: AsyncSession, moment_id: UUID) -> dict | None:
                 "ai_summary": summary,
                 "ai_emotion": emotion,
             }
-            moment.ai_tags = tags
+            moment.ai_tags = list(dict.fromkeys((moment.ai_tags or []) + tags))
             moment.ai_summary = summary
             moment.ai_emotion = emotion
             await db.commit()
@@ -165,7 +165,7 @@ async def analyze_moment(db: AsyncSession, moment_id: UUID) -> dict | None:
         "ai_summary": "这是一条生活记录",
         "ai_emotion": "neutral",
     }
-    moment.ai_tags = tags
+    moment.ai_tags = list(dict.fromkeys((moment.ai_tags or []) + tags))
     moment.ai_summary = "这是一条生活记录"
     moment.ai_emotion = "neutral"
     await db.commit()
