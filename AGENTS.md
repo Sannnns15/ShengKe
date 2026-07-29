@@ -40,6 +40,35 @@ Memory is limited. "Mental notes" don't survive session restarts; files do. Befo
 - You learn a lesson -> update `AGENTS.md`, `TOOLS.md`, or the relevant skill.
 - You make a mistake -> document it so future-you doesn't repeat it.
 
+## Git Workflow — Branch & Pull Request Required
+
+**任何代码或文档变更都必须走分支 + Pull Request 流程，禁止直接推送到 `main`。**
+
+### 分支命名规范
+
+| 类型 | 前缀 | 示例 |
+|------|------|------|
+| 新功能 | `feat/` | `feat/video-upload` |
+| Bug 修复 | `fix/` | `fix/feed-pagination-crash` |
+| 重构 | `refactor/` | `refactor/notification-service` |
+| 文档 | `docs/` | `docs/api-spec-update` |
+| 性能优化 | `perf/` | `perf/image-loading` |
+| 测试 | `test/` | `test/comment-api` |
+
+### 工作流
+
+1. **开分支** — `git checkout -b feat/xxx`（从 `main` 最新代码分出）
+2. **写代码 + 提交** — 小步提交，commit message 用英文，语义清晰
+3. **推送** — `git push origin feat/xxx`
+4. **创建 PR** — `gh pr create --base main --title "feat: xxx" --body "..."`
+5. **等待审批** — 由 Gatsby（王炫凌）review 后手动合并。Agent 自己不能点 merge。
+
+### 谁来做
+
+- OpenClaw 主 session、PM agent、所有子 agent（frontend/backend/architect/docs）都必须遵守
+- Agent 负责：开分支 → 编码 → 提交 → 推送 → 创建 PR
+- 只有 Gatsby 可以：review → approve → merge
+
 ## Red Lines
 
 - Don't exfiltrate private data. Ever.
