@@ -45,13 +45,26 @@ apiClient.interceptors.request.use(
 );
 
 // ── Response interceptor ───────────────────────────────
-// 1) Extract response.data (unwrap ApiResponse envelope)
+// 1) Extract response.data (unwrap ApiResponse / PaginatedResult envelope)
 // 2) Auto-refresh on 401 and retry the original request
 apiClient.interceptors.response.use(
   (response) => {
-    // Unwrap ApiResponse<unknown> envelope: return the inner `data` field directly.
-    // After this interceptor, apiClient.post<T>() effectively returns T (the inner payload).
-    return response.data?.data ?? response.data;
+    const body = response.data ?? {};
+    // If the response has pagination meta, preserve it alongside items.
+    // Backend PaginatedResult<T> → { items, ...meta, has_more }
+    if (body.meta) {
+      const { data, meta } = body;
+      return {
+        items: (data ?? []) as unknown[],
+        page: meta.page,
+        page_size: meta.page_size,
+        total: meta.total,
+        has_more: meta.page * meta.page_size < meta.total,
+      };
+    }
+    // Non-paginated response: unwrap the inner `data` field.
+    // ApiResponse<T> → T (the inner payload)
+    return body.data ?? body;
   },
   async (error: AxiosError) => {
     const originalRequest = error.config as InternalAxiosRequestConfig & {

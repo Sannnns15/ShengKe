@@ -26,6 +26,8 @@ export interface NotificationItem {
 interface PaginatedNotifications {
   items: NotificationItem[];
   total: number;
+  page: number;
+  page_size: number;
   has_more: boolean;
 }
 
@@ -43,6 +45,7 @@ export async function getNotifications(
   pageSize: number = PAGE_SIZE
 ): Promise<PaginatedNotifications> {
   try {
+    // Interceptor now returns { items, page, page_size, total, has_more }
     const res = await apiClient.get("/notifications", {
       params: { page, page_size: pageSize },
     });
@@ -58,6 +61,7 @@ export async function getNotifications(
  */
 export async function getUnreadCount(): Promise<number> {
   try {
+    // Interceptor unwraps ApiResponse: { count: N } → return count directly
     const res = await apiClient.get("/notifications/unread-count");
     const data = res as unknown as UnreadCountResponse;
     return data.count;
@@ -169,6 +173,8 @@ function getMockNotifications(
   return {
     items,
     total: MOCK_NOTIFICATIONS.length,
+    page,
+    page_size: _pageSize,
     has_more: page < 3,
   };
 }
