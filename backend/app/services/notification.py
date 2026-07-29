@@ -6,8 +6,25 @@ from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.notification import Notification
-from app.schemas.notification import NotificationItem
 from app.services.ws_manager import manager
+
+
+def _make_title_body(type: str, content: str | None, actor_name: str | None) -> tuple[str, str]:
+    """Build human-readable title and body from notification type."""
+    name = actor_name or "某人"
+    content_preview = (content or "")[:100]
+    if type == "like":
+        return ("收到点赞", f"{name} 赞了你的生刻")
+    elif type == "comment":
+        return ("收到评论", f"{name} 评论了你：{content_preview}" if content_preview else f"{name} 评论了你")
+    elif type == "follow":
+        return ("新粉丝", f"{name} 关注了你")
+    elif type == "mention":
+        return ("有人@了你", f"{name} 在生刻中提到了你")
+    elif type == "system":
+        return ("系统通知", content or "")
+    else:
+        return ("通知", content or "")
 
 
 async def create_notification(
@@ -32,8 +49,36 @@ async def create_notification(
     await db.commit()
     await db.refresh(notification)
 
-    # Push notification to the user via WebSocket
-    notification_data = NotificationItem.model_validate(notification).model_dump()
+    # Query actor info for the WebSocket push
+    actor_name: str | None = None
+    actor_avatar: str | None = None
+    if actor_id is not None:
+        from app.models.user import User
+
+        result = await db.execute(
+            select(User.nickname, User.avatar_url).where(User.id == actor_id)
+        )
+        row = result.first()
+        if row is not None:
+            actor_name, actor_avatar = row
+
+    title, body = _make_title_body(notification.type, notification.content, actor_name)
+
+    notification_data = {
+        "id": notification.id,
+        "user_id": notification.user_id,
+        "actor_id": notification.actor_id,
+        "actor_name": actor_name,
+        "actor_avatar": actor_avatar,
+        "type": notification.type,
+        "title": title,
+        "body": body,
+        "target_type": notification.target_type,
+        "target_id": notification.target_id,
+        "content": notification.content,
+        "is_read": notification.is_read,
+        "created_at": notification.created_at,
+    }
     await manager.send_to_user(
         user_id,
         {"type": "notification", "data": notification_data},
@@ -47,8 +92,14 @@ async def get_user_notifications(
     user_id: UUID,
     page: int = 1,
     page_size: int = 20,
-) -> tuple[list[Notification], int]:
-    """Get paginated notifications for a user, ordered by created_at DESC."""
+) -> tuple[list[dict], int]:
+    """Get paginated notifications for a user with actor info.
+
+    JOINs the User table on actor_id to populate actor_name and actor_avatar.
+    Returns list of dicts with all Notification fields plus actor info.
+    """
+    from app.models.user import User
+
     conditions = [Notification.user_id == user_id]
 
     # Count total
@@ -56,16 +107,36 @@ async def get_user_notifications(
     total_result = await db.execute(count_query)
     total = total_result.scalar() or 0
 
-    # Fetch page
+    # Fetch page with actor join (LEFT JOIN because actor_id can be null)
     query = (
-        select(Notification)
+        select(Notification, User.nickname, User.avatar_url)
+        .outerjoin(User, Notification.actor_id == User.id)
         .where(*conditions)
         .order_by(Notification.created_at.desc())
         .offset((page - 1) * page_size)
         .limit(page_size)
     )
     result = await db.execute(query)
-    notifications = list(result.scalars().all())
+    rows = result.all()
+
+    notifications = []
+    for notification, nickname, avatar_url in rows:
+        title, body = _make_title_body(notification.type, notification.content, nickname)
+        notifications.append({
+            "id": notification.id,
+            "user_id": notification.user_id,
+            "actor_id": notification.actor_id,
+            "actor_name": nickname,
+            "actor_avatar": avatar_url,
+            "type": notification.type,
+            "title": title,
+            "body": body,
+            "target_type": notification.target_type,
+            "target_id": notification.target_id,
+            "content": notification.content,
+            "is_read": notification.is_read,
+            "created_at": notification.created_at,
+        })
 
     return notifications, total
 

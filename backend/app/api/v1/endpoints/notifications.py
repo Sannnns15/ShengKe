@@ -27,7 +27,7 @@ async def list_notifications(
 ):
     """Get paginated notifications for the current user."""
     notifications, total = await get_user_notifications(db, user_id, page, page_size)
-    items = [NotificationItem.model_validate(n) for n in notifications]
+    items = [NotificationItem(**n) for n in notifications]
     return PaginatedResult(
         code=0,
         message="success",
